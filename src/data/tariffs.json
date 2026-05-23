@@ -1,0 +1,8 @@
+[
+  { "id": "tar_001", "code": "REP-PAR-001", "description": "Paragolpes delantero", "category": "repuesto", "maxUnitPrice": 180000, "maxLaborHours": 1.5, "authorized": true },
+  { "id": "tar_002", "code": "REP-FAR-001", "description": "Faro delantero izquierdo", "category": "repuesto", "maxUnitPrice": 95000, "maxLaborHours": 0.8, "authorized": true },
+  { "id": "tar_003", "code": "LAB-CHA-001", "description": "Mano de obra chapa", "category": "mano_obra", "maxUnitPrice": 18500, "maxLaborHours": 8, "authorized": true },
+  { "id": "tar_004", "code": "MAT-PIN-001", "description": "Pintura bicapa", "category": "material", "maxUnitPrice": 56000, "maxLaborHours": 3, "authorized": true },
+  { "id": "tar_005", "code": "SER-ALI-001", "description": "Alineación y balanceo", "category": "servicio", "maxUnitPrice": 38000, "maxLaborHours": 1, "authorized": true },
+  { "id": "tar_006", "code": "SER-DET-001", "description": "Lavado y detailing", "category": "servicio", "maxUnitPrice": 12000, "maxLaborHours": 0.5, "authorized": false }
+]

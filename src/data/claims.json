@@ -1,0 +1,24 @@
+[
+  {
+    "id": "cla_001",
+    "claimNumber": "01234567",
+    "insuredName": "Mariana Alvarez",
+    "vehicle": "Toyota Corolla 2021",
+    "licensePlate": "AB123CD",
+    "reportedDamage": "Impacto frontal con daño en paragolpes, faro izquierdo y pintura",
+    "authorizedServices": ["Paragolpes delantero", "Faro delantero izquierdo", "Mano de obra chapa", "Pintura bicapa"],
+    "authorizedWorkshopNames": ["DigitFlow Solutions", "Taller Norte"],
+    "status": "open"
+  },
+  {
+    "id": "cla_002",
+    "claimNumber": "07654321",
+    "insuredName": "Carlos Mendez",
+    "vehicle": "Ford Ranger 2020",
+    "licensePlate": "AC987ZX",
+    "reportedDamage": "Daño lateral derecho y revisión de tren delantero",
+    "authorizedServices": ["Mano de obra chapa", "Pintura bicapa", "Alineación y balanceo"],
+    "authorizedWorkshopNames": ["Centro Integral Sur"],
+    "status": "under_review"
+  }
+]

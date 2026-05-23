@@ -1,0 +1,32 @@
+[
+  {
+    "id": "inv_demo_001",
+    "invoiceNumber": "0001-00001234",
+    "claimNumber": "01234567",
+    "workshopName": "DigitFlow Solutions",
+    "insuredName": "Mariana Alvarez",
+    "vehicle": "Toyota Corolla 2021",
+    "licensePlate": "AB123CD",
+    "date": "2026-05-12",
+    "uuid": "550e8400-e29b-41d4-a716-446655440000",
+    "subtotal": 440555.37,
+    "tax": 92516.63,
+    "total": 533072,
+    "status": "observed",
+    "riskScore": 75,
+    "rawOcrText": "Factura 0001-00001234 Siniestro 01234567 Taller DigitFlow Solutions Total 533.072,00",
+    "createdAt": "2026-05-12T13:20:00.000Z",
+    "fileName": "factura-demo.pdf",
+    "items": [
+      { "id": "item_001", "description": "Paragolpes delantero", "category": "repuesto", "quantity": 1, "unitPrice": 210000, "laborHours": 1.5, "total": 210000 },
+      { "id": "item_002", "description": "Pintura bicapa", "category": "material", "quantity": 1, "unitPrice": 56000, "laborHours": 3, "total": 56000 },
+      { "id": "item_003", "description": "Lavado y detailing", "category": "servicio", "quantity": 1, "unitPrice": 18000, "laborHours": 0.5, "total": 18000 }
+    ],
+    "alerts": [
+      { "id": "alt_001", "severity": "high", "type": "tariff_price", "message": "El precio de Paragolpes delantero supera el tarifario acordado.", "field": "unitPrice", "expectedValue": "180000", "actualValue": "210000" },
+      { "id": "alt_002", "severity": "high", "type": "claim_scope", "message": "El servicio Lavado y detailing no corresponde a los servicios autorizados del siniestro.", "field": "description" },
+      { "id": "alt_003", "severity": "medium", "type": "unauthorized_item", "message": "Lavado y detailing no está autorizado en el tarifario.", "field": "authorized" }
+    ],
+    "reviews": []
+  }
+]

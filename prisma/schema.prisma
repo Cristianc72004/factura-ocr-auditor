@@ -1,0 +1,95 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id    String @id @default(cuid())
+  name  String
+  email String @unique
+  role  String
+}
+
+model Workshop {
+  id     String @id @default(cuid())
+  name   String
+  taxId  String
+  status String
+}
+
+model Claim {
+  id                 String @id @default(cuid())
+  claimNumber        String @unique
+  insuredName        String
+  vehicle            String
+  licensePlate       String
+  reportedDamage     String
+  authorizedServices String
+  status             String
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNumber String
+  claimNumber   String
+  workshopName  String
+  uuid          String
+  subtotal      Float
+  tax           Float
+  total         Float
+  status        String
+  riskScore     Int
+  rawOcrText    String
+  createdAt     DateTime      @default(now())
+  items         InvoiceItem[]
+  alerts        AuditAlert[]
+  reviews       AuditReview[]
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  description String
+  category    String
+  quantity    Float
+  unitPrice   Float
+  laborHours  Float
+  total       Float
+  invoice     Invoice @relation(fields: [invoiceId], references: [id])
+}
+
+model TariffItem {
+  id            String  @id @default(cuid())
+  code          String
+  description   String
+  category      String
+  maxUnitPrice  Float
+  maxLaborHours Float
+  authorized    Boolean
+}
+
+model AuditAlert {
+  id            String  @id @default(cuid())
+  invoiceId     String
+  severity      String
+  type          String
+  message       String
+  field         String?
+  expectedValue String?
+  actualValue   String?
+  invoice       Invoice @relation(fields: [invoiceId], references: [id])
+}
+
+model AuditReview {
+  id           String   @id @default(cuid())
+  invoiceId    String
+  reviewerName String
+  decision     String
+  comment      String
+  reviewedAt   DateTime @default(now())
+  invoice      Invoice  @relation(fields: [invoiceId], references: [id])
+}
