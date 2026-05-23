@@ -117,8 +117,8 @@ export default function UploadPage() {
         <h1 className="mt-1 text-3xl font-semibold text-ink">Auditar nueva factura</h1>
       </div>
       {error && <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-rejected">{error}</div>}
-      <div className="grid gap-6 xl:grid-cols-[420px_1fr]">
-        <div className="space-y-4">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(280px,380px)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-4">
           <FileUploader uploadedFile={uploadedFile} busy={busy} onUpload={upload} />
           <button className="focus-ring w-full rounded border border-line bg-white px-4 py-2 text-sm font-semibold text-navy disabled:opacity-50" disabled={busy || !rawText} onClick={reparse}>
             Reprocesar texto corregido
@@ -132,7 +132,7 @@ export default function UploadPage() {
             </Link>
           )}
         </div>
-        <div className="grid gap-6">
+        <div className="grid min-w-0 gap-6">
           {recognition && (
             <div className={recognition.isValid ? "rounded border border-emerald-200 bg-emerald-50 p-4 text-sm text-approved" : "rounded border border-red-200 bg-red-50 p-4 text-sm text-rejected"}>
               <p className="font-semibold">{recognition.isValid ? "Factura válida reconocida" : "Documento no válido"}</p>

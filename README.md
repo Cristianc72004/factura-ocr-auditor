@@ -18,10 +18,15 @@ Prototipo web para auditar automáticamente facturas y documentos enviados por t
   - scoring de riesgo.
 - Clasificación automática: aprobada, observada o rechazada.
 - Dashboard administrativo.
+- Panel administrativo orientado al flujo real: primero tarifario acordado, luego siniestralidad reportada, después carga y auditoría.
 - Panel de casos con filtros y búsqueda.
+- Vista de siniestros reportados.
+- Vista de clientes asegurados y polizas activas.
+- Vista de talleres conveniados con tarifa de mano de obra, categorias permitidas y monto maximo.
 - Detalle de caso con reporte, alertas, OCR bruto e historial humano.
 - Revisión humana con cambio manual de estado y comentario.
 - Tarifario demo editable.
+- Generador de facturas PDF sintéticas del modelo DigitFlow para crear varias muestras de prueba.
 - Prisma schema listo para migrar a SQLite/PostgreSQL, aunque el demo usa JSON local.
 
 ## Stack
@@ -54,6 +59,18 @@ Abre `http://localhost:3000`.
 
 También puedes simular OCR pegando texto en el campo de OCR y pulsando `Reprocesar texto corregido`.
 
+## Generar facturas de prueba
+
+Entra a `/generator`, indica la cantidad de PDFs y pulsa `Generar PDFs`.
+
+Cada factura generada:
+
+- usa el formato simplificado `Factura_DigitFlow`,
+- toma datos posibles de clientes, polizas, siniestros y talleres conveniados registrados,
+- mantiene señales de reconocimiento como `FACTURA ELECTRONICA`, `N Siniestro`, `TOTAL ARS`, `CAE`, `AFIP` y `UUID`,
+- varia numero de factura, siniestro, asegurado, vehiculo, placa, items y total,
+- puede descargarse o probarse directamente contra `/api/ocr`.
+
 ## Datos demo
 
 Los datos semilla están en:
@@ -62,7 +79,9 @@ Los datos semilla están en:
 - `src/data/claims.json`
 - `src/data/demo-invoices.json`
 
-En ejecución, el prototipo copia facturas y tarifario a `.local-data` para persistir cambios locales.
+En ejecución, el prototipo copia el tarifario a `.local-data` y guarda ahí los casos auditados.
+Las facturas auditadas arrancan vacías; el flujo operativo comienza con el tarifario acordado y los siniestros reportados.
+Los PDFs sintéticos se generan en `uploads/generated` y no se suben a Git.
 
 ## Seguridad del prototipo
 

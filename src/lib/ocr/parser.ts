@@ -26,15 +26,139 @@ function parseMoney(value?: string | null) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
-function guessCategory(description: string) {
-  const value = description.toLowerCase();
+function guessCategory(description: string, code = "") {
+  const value = `${code} ${description}`.toLowerCase();
+  if (value.includes("mo-")) return "mano_obra";
+  if (value.includes("mat-")) return "material";
+  if (value.includes("sv-")) return "servicio";
+  if (value.includes("rv-") || value.includes("rep-")) return "repuesto";
   if (value.includes("mano") || value.includes("chapa") || value.includes("hora")) return "mano_obra";
   if (value.includes("pintura") || value.includes("material")) return "material";
   if (value.includes("lavado") || value.includes("alineacion") || value.includes("balanceo")) return "servicio";
   return "repuesto";
 }
 
-function parseItems(text: string): InvoiceItem[] {
+function cleanExtractedText(value: string) {
+  const compact = value.replace(/\s+/g, " ").trim();
+  try {
+    const repaired = Buffer.from(compact, "latin1").toString("utf8");
+    const originalNoise = (compact.match(/\u00c3|\u00c2/g) ?? []).length;
+    const repairedNoise = (repaired.match(/\u00c3|\u00c2/g) ?? []).length;
+    if (originalNoise > repairedNoise) return repaired;
+  } catch {
+    // Keep fallback replacements below for runtimes without Buffer.
+  }
+  return compact
+    .replace(/\u00c3\u0093/g, "O")
+    .replace(/\u00c3\u00b3/g, "o")
+    .replace(/\u00c3\u00a9/g, "e")
+    .replace(/\u00c3\u00ad/g, "i")
+    .replace(/\u00c3\u00ba/g, "u")
+    .replace(/\u00c3\u00b1/g, "n")
+    .replace(/\u00c3\u0081/g, "A")
+    .replace(/\u00c3\u00a1/g, "a")
+    .replace(/\u00c3\u0089/g, "E")
+    .replace(/\u00c3\u008d/g, "I")
+    .replace(/\u00c3\u009a/g, "U")
+    .replace(/\u00c2\u00b0/g, "")
+    .replace(/\u00e2\u0080\u0093/g, "-");
+}
+
+function normalizeDigitFlowTableText(text: string) {
+  return text
+    .replace(/\r/g, "")
+    .replace(/([A-Z]{2,4})-\s*\n\s*([A-Z]{2,4}-\d{1,4})/g, "$1-$2 ")
+    .replace(/([A-Z]{2,4}-[A-Z]{2,4})-\s*\n\s*(\d{1,4})/g, "$1-$2 ")
+    .replace(/([A-Z]{2,4}-[A-Z]{2,4})-\s+(\d{1,4})/g, "$1-$2 ");
+}
+
+function parseDigitFlowRow(row: string) {
+  return row.match(
+    /^\d{1,2}\s+([A-Z]{2,4}(?:-[A-Z]{2,4})+-?\d{1,4})\s+(.+?)\s+([\d.,]+)\s+([A-Za-z]+)\s+([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s*$/i,
+  );
+}
+
+function isIgnorableTableLine(line: string) {
+  return (
+    /^(repuestos|insumos|repuestos \/ insumos|mano de obra|servicios adicionales)$/i.test(line) ||
+    /^--\s*\d+\s+of\s+\d+\s*--$/i.test(line) ||
+    /digitflow solutions/i.test(line) ||
+    /\bcuit\b/i.test(line) ||
+    /gracias por su confianza/i.test(line)
+  );
+}
+
+function collectDigitFlowRows(text: string) {
+  const normalized = normalizeDigitFlowTableText(text);
+  const lines = normalized
+    .split(/\n/)
+    .map((line) => line.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+
+  const rows: string[] = [];
+  let current = "";
+  let inTable = false;
+
+  for (const line of lines) {
+    if (/tem.*digo.*descripci/i.test(line)) {
+      inTable = true;
+      continue;
+    }
+    if (!inTable) continue;
+    if (/^(observaciones|subtotal|iva|total ars|identificador|condiciones|gracias)/i.test(line)) break;
+    if (isIgnorableTableLine(line)) {
+      if (current && parseDigitFlowRow(current)) {
+        rows.push(current);
+        current = "";
+      }
+      continue;
+    }
+
+    if (/^\d{1,2}\s+/.test(line)) {
+      if (current) rows.push(current);
+      current = line;
+      continue;
+    }
+    if (current) {
+      if (parseDigitFlowRow(current)) {
+        rows.push(current);
+        current = "";
+      } else {
+        current = `${current} ${line}`;
+      }
+    }
+  }
+
+  if (current) rows.push(current);
+  return rows;
+}
+
+function parseDigitFlowItems(text: string): InvoiceItem[] {
+  return collectDigitFlowRows(text)
+    .map((row) => {
+      const match = parseDigitFlowRow(row);
+      if (!match) return null;
+
+      const [, code, description, quantityRaw, unit, unitPriceRaw, , totalRaw] = match;
+      const quantity = parseMoney(quantityRaw);
+      const unitPrice = parseMoney(unitPriceRaw);
+      const total = parseMoney(totalRaw);
+      if (!description || total <= 0) return null;
+
+      return {
+        id: uid("item"),
+        description: cleanExtractedText(description),
+        category: guessCategory(description, code),
+        quantity,
+        unitPrice,
+        laborHours: unit.toLowerCase() === "h" ? quantity : 0,
+        total,
+      };
+    })
+    .filter(Boolean) as InvoiceItem[];
+}
+
+function parseFallbackItems(text: string): InvoiceItem[] {
   const lines = text
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -45,7 +169,7 @@ function parseItems(text: string): InvoiceItem[] {
     return hasMoney && !/subtotal|total|iva|impuesto/i.test(line);
   });
 
-  const items = itemLines
+  return itemLines
     .map((line) => {
       const values = line.match(/[\d.,]+/g) ?? [];
       const total = parseMoney(values.at(-1));
@@ -53,20 +177,27 @@ function parseItems(text: string): InvoiceItem[] {
       const unitPrice = values.length >= 2 ? parseMoney(values.at(-2)) : total;
       const description = line.replace(/[\d.,\s$]+$/g, "").replace(/[-:|]+$/g, "").trim();
       if (!description || total <= 0) return null;
+      const category = guessCategory(description);
       return {
         id: uid("item"),
         description,
-        category: guessCategory(description),
+        category,
         quantity: quantity || 1,
         unitPrice: unitPrice || total,
-        laborHours: guessCategory(description) === "mano_obra" ? quantity || 1 : 0,
+        laborHours: category === "mano_obra" ? quantity || 1 : 0,
         total,
       };
     })
     .filter(Boolean) as InvoiceItem[];
+}
 
-  return items.length
-    ? items
+function parseItems(text: string): InvoiceItem[] {
+  const digitFlowItems = parseDigitFlowItems(text);
+  if (digitFlowItems.length) return digitFlowItems;
+
+  const fallbackItems = parseFallbackItems(text);
+  return fallbackItems.length
+    ? fallbackItems
     : [
         {
           id: uid("item"),
@@ -82,16 +213,28 @@ function parseItems(text: string): InvoiceItem[] {
 
 export function parseInvoiceText(rawText: string): ExtractedInvoice {
   const text = rawText.replace(/\u00a0/g, " ");
-  const invoiceNumber = pick(text, [/\bN\s*([0-9]{4}-[0-9]{8})\b/i, /\b([0-9]{4}-[0-9]{8})\b/, /factura\s*(?:nro|no|#|numero)?[:\s-]*([0-9]{4}-[0-9]{8})/i]);
-  const claimNumber = pick(text, [/(?:n°|nº|nro|no|n)?\s*de?\s*siniestro[:\s-]*([A-Z0-9-]+)/i, /\bN\s*Siniestro[:\s-]*([A-Z0-9-]+)/i, /siniestro\s*(?:nro|no|#|numero)?[:\s-]*([A-Z0-9-]+)/i]);
-  const workshopName = pick(text, [/taller[:\s-]*([^\n\r]+)/i, /proveedor[:\s-]*([^\n\r]+)/i], /digitflow solutions/i.test(text) ? "DigitFlow Solutions S.A.S." : "");
-  const insuredName = pick(text, [/asegurado[:\s-]*([^\n\r]+)/i, /cliente[:\s-]*([^\n\r]+)/i]);
-  const vehicleLine = pick(text, [/veh[ií]culo[:\s-]*([^\n\r]+)/i, /auto[:\s-]*([^\n\r]+)/i]);
+  const invoiceNumber = pick(text, [
+    /\bN\s*([0-9]{4}-[0-9]{8})\b/i,
+    /\b([0-9]{4}-[0-9]{8})\b/,
+    /factura\s*(?:nro|no|#|numero)?[:\s-]*([0-9]{4}-[0-9]{8})/i,
+  ]);
+  const claimNumber = pick(text, [
+    /(?:nro|no|n)?\s*de?\s*siniestro[:\s-]*([A-Z0-9-]+)/i,
+    /\bN\s*Siniestro[:\s-]*([A-Z0-9-]+)/i,
+    /siniestro\s*(?:nro|no|#|numero)?[:\s-]*([A-Z0-9-]+)/i,
+  ]);
+  const workshopName = pick(
+    text,
+    [/taller[:\s-]*([^\n\r]+)/i, /proveedor[:\s-]*([^\n\r]+)/i],
+    /digitflow solutions/i.test(text) ? "DigitFlow Solutions S.A.S." : "",
+  );
+  const insuredName = pick(text, [/asegurado[:\s-]*([^\n\r]+?)(?:\s+poliza:|\s+poliza\s|$)/i, /cliente[:\s-]*([^\n\r]+)/i]);
+  const vehicleLine = pick(text, [/veh.?culo[:\s-]*([^\n\r]+)/i, /auto[:\s-]*([^\n\r]+)/i]);
   const plateFromVehicle = vehicleLine.match(/\b([A-Z]{2,3}\d{3}[A-Z]{0,2})\b/i)?.[1] ?? "";
   const vehicle = vehicleLine.replace(/\s*-\s*[A-Z]{2,3}\d{3}[A-Z]{0,2}\s*$/i, "").trim();
   const licensePlate = pick(text, [/(?:patente|placa|dominio)[:\s-]*([A-Z]{2,3}\s?\d{3}\s?[A-Z]{0,2})/i], plateFromVehicle);
-  const uuid = pick(text, [/uuid[:\s-]*([a-f0-9-]{12,})/i, /\b([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})\b/i]);
-  const date = pick(text, [/fecha\s*(?:de\s*emisi[oó]n)?[:\s-]*(\d{2}[/-]\d{2}[/-]\d{4})/i, /\b(\d{4}-\d{2}-\d{2})\b/]);
+  const uuid = pick(text, [/uuid[:\s-]*([a-z0-9-]{12,})/i, /\b([a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12})\b/i]);
+  const date = pick(text, [/emision[:\s-]*(\d{2}[/-]\d{2}[/-]\d{4})/i, /fecha\s*(?:de\s*emisi.n)?[:\s-]*(\d{2}[/-]\d{2}[/-]\d{4})/i, /\b(\d{4}-\d{2}-\d{2})\b/]);
   const subtotal = parseMoney(pick(text, [/subtotal[:\s$]*([\d.,]+)/i]));
   const tax = parseMoney(pick(text, [/(?:iva|impuesto)(?:\s*\([^)]*\))?[:\s$]*([\d.,]+)/i]));
   const total = parseMoney(pick(text, [/total\s*ars[:\s$]*([\d.,]+)/i, /total[:\s$]*([\d.,]+)/i]));

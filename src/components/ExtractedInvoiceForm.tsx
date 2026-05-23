@@ -80,7 +80,7 @@ export function ExtractedInvoiceForm({ invoice, onChange }: Props) {
       </div>
       <div className="mt-3 space-y-3">
         {invoice.items.map((item, index) => (
-          <div key={item.id ?? index} className="grid gap-2 rounded border border-line p-3 md:grid-cols-[2fr_1fr_90px_120px_90px_120px_auto]">
+          <div key={item.id ?? index} className="grid min-w-0 gap-2 rounded border border-line p-3 lg:grid-cols-[minmax(180px,2fr)_minmax(120px,1fr)_80px_110px_80px_110px_auto]">
             <input className="rounded border border-line px-2 py-2 text-sm focus-ring" value={item.description} onChange={(event) => updateItem(index, "description", event.target.value)} placeholder="Descripción" />
             <input className="rounded border border-line px-2 py-2 text-sm focus-ring" value={item.category} onChange={(event) => updateItem(index, "category", event.target.value)} placeholder="Categoría" />
             <input className="rounded border border-line px-2 py-2 text-sm focus-ring" type="number" value={item.quantity} onChange={(event) => updateItem(index, "quantity", event.target.value)} />

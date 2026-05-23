@@ -1,0 +1,30 @@
+[
+  {
+    "id": "pol_001",
+    "policyNumber": "POL-AR-2024-0001",
+    "insurerName": "Seguros del Norte S.A.",
+    "clientName": "Juan Perez",
+    "clientDocument": "DNI 28.345.678",
+    "vehicle": "Toyota Corolla XEI 2.0 2020",
+    "licensePlate": "AB123CD",
+    "plan": "todo_riesgo",
+    "deductible": 35000,
+    "maxRepairAmount": 650000,
+    "coveredServices": ["Optica delantera izquierda", "Paragolpes delantero", "Guardabarro delantero", "Pintura", "Lija al agua grano 600", "Mano de obra", "Diagnostico"],
+    "status": "active"
+  },
+  {
+    "id": "pol_002",
+    "policyNumber": "POL-AR-2024-0002",
+    "insurerName": "Seguros del Norte S.A.",
+    "clientName": "Mariana Alvarez",
+    "clientDocument": "DNI 31.222.100",
+    "vehicle": "Ford Ranger XLS 2021",
+    "licensePlate": "AC987ZX",
+    "plan": "terceros_completo",
+    "deductible": 50000,
+    "maxRepairAmount": 420000,
+    "coveredServices": ["Mano de obra", "Pintura", "Alineacion", "Guardabarro"],
+    "status": "active"
+  }
+]

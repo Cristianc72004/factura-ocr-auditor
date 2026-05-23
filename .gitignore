@@ -146,3 +146,5 @@ vite.config.ts.timestamp-*
 .local-data/
 uploads/invoices/*
 !uploads/invoices/.gitkeep
+uploads/generated/*
+!uploads/generated/.gitkeep

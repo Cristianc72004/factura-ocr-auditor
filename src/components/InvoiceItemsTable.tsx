@@ -3,8 +3,8 @@ import type { InvoiceItem } from "@/types/invoice";
 
 export function InvoiceItemsTable({ items }: { items: InvoiceItem[] }) {
   return (
-    <div className="overflow-x-auto rounded border border-line bg-white">
-      <table className="w-full min-w-[720px] text-left text-sm">
+    <div className="w-full overflow-x-auto rounded border border-line bg-white">
+      <table className="w-full min-w-full text-left text-sm">
         <thead className="bg-surface text-xs uppercase text-steel">
           <tr>
             <th className="px-4 py-3">Descripción</th>

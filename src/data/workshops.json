@@ -1,0 +1,22 @@
+[
+  {
+    "id": "wrk_001",
+    "workshopName": "DigitFlow Solutions S.A.S.",
+    "taxId": "30-900123456-7",
+    "insurerName": "Seguros del Norte S.A.",
+    "status": "active",
+    "laborHourRate": 18000,
+    "maxInvoiceAmount": 700000,
+    "allowedCategories": ["repuesto", "material", "mano_obra", "servicio"]
+  },
+  {
+    "id": "wrk_002",
+    "workshopName": "Taller Norte",
+    "taxId": "30-70123456-9",
+    "insurerName": "Seguros del Norte S.A.",
+    "status": "active",
+    "laborHourRate": 16500,
+    "maxInvoiceAmount": 450000,
+    "allowedCategories": ["repuesto", "material", "mano_obra"]
+  }
+]

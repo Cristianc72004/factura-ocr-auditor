@@ -3,8 +3,8 @@ import type { TariffItem } from "@/types/tariff";
 
 export function TariffTable({ tariffs }: { tariffs: TariffItem[] }) {
   return (
-    <div className="overflow-x-auto rounded border border-line bg-white shadow-subtle">
-      <table className="w-full min-w-[820px] text-left text-sm">
+    <div className="w-full overflow-x-auto rounded border border-line bg-white shadow-subtle">
+      <table className="w-full min-w-full text-left text-sm">
         <thead className="bg-surface text-xs uppercase text-steel">
           <tr>
             <th className="px-5 py-3">Código</th>

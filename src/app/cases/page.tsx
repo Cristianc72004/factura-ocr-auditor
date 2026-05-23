@@ -34,7 +34,7 @@ export default function CasesPage() {
         <p className="text-sm font-semibold uppercase tracking-wide text-steel">Revisión humana</p>
         <h1 className="mt-1 text-3xl font-semibold text-ink">Casos auditados</h1>
       </div>
-      <div className="mb-4 grid gap-3 lg:grid-cols-[1fr_220px]">
+      <div className="mb-4 grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_220px]">
         <label className="relative">
           <Search className="pointer-events-none absolute left-3 top-2.5 size-4 text-steel" />
           <input className="w-full rounded border border-line bg-white py-2 pl-10 pr-3 focus-ring" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por factura, siniestro, taller o asegurado" />
@@ -46,8 +46,8 @@ export default function CasesPage() {
           <option value="rejected">Rechazadas</option>
         </select>
       </div>
-      <div className="overflow-x-auto rounded border border-line bg-white shadow-subtle">
-        <table className="w-full min-w-[900px] text-left text-sm">
+      <div className="w-full overflow-x-auto rounded border border-line bg-white shadow-subtle">
+        <table className="w-full min-w-full text-left text-sm">
           <thead className="bg-surface text-xs uppercase text-steel">
             <tr>
               <th className="px-5 py-3">Factura</th>

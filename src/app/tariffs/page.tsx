@@ -1,20 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Edit2, Trash2 } from "lucide-react";
 import { LayoutShell } from "@/components/LayoutShell";
-import { TariffTable } from "@/components/TariffTable";
-import { normalizeText } from "@/lib/utils";
+import { formatCurrency, normalizeText } from "@/lib/utils";
 import type { TariffItem } from "@/types/tariff";
+
+const blank: Partial<TariffItem> = { category: "servicio", authorized: true, maxLaborHours: 0 };
 
 export default function TariffsPage() {
   const [tariffs, setTariffs] = useState<TariffItem[]>([]);
   const [query, setQuery] = useState("");
-  const [draft, setDraft] = useState<Partial<TariffItem>>({ category: "servicio", authorized: true });
+  const [draft, setDraft] = useState<Partial<TariffItem>>(blank);
 
   useEffect(() => {
-    fetch("/api/tariffs")
-      .then((response) => response.json())
-      .then((data) => setTariffs(data.tariffs || []));
+    fetch("/api/tariffs").then((response) => response.json()).then((data) => setTariffs(data.tariffs || []));
   }, []);
 
   const filtered = useMemo(() => {
@@ -23,34 +23,47 @@ export default function TariffsPage() {
   }, [query, tariffs]);
 
   async function save() {
-    const response = await fetch("/api/tariffs", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(draft),
-    });
+    const response = await fetch("/api/tariffs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(draft) });
     const data = await response.json();
     setTariffs([data.tariff, ...tariffs.filter((item) => item.id !== data.tariff.id)]);
-    setDraft({ category: "servicio", authorized: true });
+    setDraft(blank);
+  }
+
+  async function remove(id: string) {
+    await fetch(`/api/tariffs?id=${id}`, { method: "DELETE" });
+    setTariffs(tariffs.filter((item) => item.id !== id));
   }
 
   return (
     <LayoutShell>
-      <div className="mb-6">
-        <p className="text-sm font-semibold uppercase tracking-wide text-steel">Reglas económicas</p>
-        <h1 className="mt-1 text-3xl font-semibold text-ink">Tarifario</h1>
-      </div>
-      <div className="mb-6 rounded border border-line bg-white p-4 shadow-subtle">
-        <h2 className="mb-3 font-semibold text-ink">Nuevo concepto</h2>
-        <div className="grid gap-3 md:grid-cols-6">
-          <input className="rounded border border-line px-3 py-2 focus-ring" placeholder="Código" value={draft.code ?? ""} onChange={(event) => setDraft({ ...draft, code: event.target.value })} />
-          <input className="rounded border border-line px-3 py-2 focus-ring md:col-span-2" placeholder="Descripción" value={draft.description ?? ""} onChange={(event) => setDraft({ ...draft, description: event.target.value })} />
-          <input className="rounded border border-line px-3 py-2 focus-ring" placeholder="Categoría" value={draft.category ?? ""} onChange={(event) => setDraft({ ...draft, category: event.target.value })} />
-          <input className="rounded border border-line px-3 py-2 focus-ring" type="number" placeholder="Precio máx." value={draft.maxUnitPrice ?? ""} onChange={(event) => setDraft({ ...draft, maxUnitPrice: Number(event.target.value) })} />
-          <button className="focus-ring rounded bg-navy px-4 py-2 text-sm font-semibold text-white" onClick={save}>Guardar</button>
+      <div className="mb-6"><p className="text-sm font-semibold uppercase tracking-wide text-steel">Reglas economicas</p><h1 className="mt-1 text-3xl font-semibold text-ink">Tarifario acordado</h1></div>
+      <section className="mb-6 rounded border border-line bg-white p-4 shadow-subtle">
+        <h2 className="mb-3 font-semibold text-ink">{draft.id ? "Editar concepto" : "Nuevo concepto"}</h2>
+        <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
+          <Input label="Codigo" value={draft.code} onChange={(v) => setDraft({ ...draft, code: v })} />
+          <Input label="Descripcion" value={draft.description} onChange={(v) => setDraft({ ...draft, description: v })} />
+          <Input label="Categoria" value={draft.category} onChange={(v) => setDraft({ ...draft, category: v })} />
+          <Input label="Precio max." type="number" value={draft.maxUnitPrice} onChange={(v) => setDraft({ ...draft, maxUnitPrice: Number(v) })} />
+          <Input label="Horas max." type="number" value={draft.maxLaborHours} onChange={(v) => setDraft({ ...draft, maxLaborHours: Number(v) })} />
+          <label className="flex items-end gap-2 rounded border border-line px-3 py-2 text-sm"><input type="checkbox" checked={Boolean(draft.authorized)} onChange={(e) => setDraft({ ...draft, authorized: e.target.checked })} /> Autorizado</label>
         </div>
+        <div className="mt-4 flex gap-2"><button className="rounded bg-navy px-4 py-2 text-sm font-semibold text-white" onClick={save}>Guardar</button>{draft.id && <button className="rounded border border-line px-4 py-2 text-sm font-semibold text-steel" onClick={() => setDraft(blank)}>Cancelar</button>}</div>
+      </section>
+      <input className="mb-4 w-full rounded border border-line bg-white px-3 py-2 focus-ring" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por codigo, descripcion o categoria" />
+      <div className="w-full overflow-x-auto rounded border border-line bg-white shadow-subtle">
+        <table className="w-full min-w-full text-left text-sm">
+          <thead className="bg-surface text-xs uppercase text-steel"><tr><th className="px-5 py-3">Codigo</th><th className="px-5 py-3">Descripcion</th><th className="px-5 py-3">Categoria</th><th className="px-5 py-3 text-right">Precio max.</th><th className="px-5 py-3 text-right">Horas</th><th className="px-5 py-3">Aut.</th><th className="px-5 py-3 text-right">Acciones</th></tr></thead>
+          <tbody className="divide-y divide-line">{filtered.map((item) => <tr key={item.id}><td className="px-5 py-3 font-semibold text-navy">{item.code}</td><td className="px-5 py-3">{item.description}</td><td className="px-5 py-3 text-steel">{item.category}</td><td className="px-5 py-3 text-right">{formatCurrency(item.maxUnitPrice)}</td><td className="px-5 py-3 text-right">{item.maxLaborHours}</td><td className="px-5 py-3">{item.authorized ? "Si" : "No"}</td><td className="px-5 py-3"><Actions onEdit={() => setDraft(item)} onDelete={() => remove(item.id)} /></td></tr>)}</tbody>
+        </table>
       </div>
-      <input className="mb-4 w-full rounded border border-line bg-white px-3 py-2 focus-ring" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por código, descripción o categoría" />
-      <TariffTable tariffs={filtered} />
     </LayoutShell>
   );
+}
+
+function Input({ label, value, onChange, type = "text" }: { label: string; value: unknown; onChange: (value: string) => void; type?: string }) {
+  return <label className="text-sm"><span className="mb-1 block font-medium text-steel">{label}</span><input className="w-full rounded border border-line px-3 py-2 focus-ring" type={type} value={String(value ?? "")} onChange={(e) => onChange(e.target.value)} /></label>;
+}
+
+function Actions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+  return <div className="flex justify-end gap-2"><button className="grid size-9 place-items-center rounded border border-line text-navy" onClick={onEdit}><Edit2 className="size-4" /></button><button className="grid size-9 place-items-center rounded border border-line text-rejected" onClick={onDelete}><Trash2 className="size-4" /></button></div>;
 }

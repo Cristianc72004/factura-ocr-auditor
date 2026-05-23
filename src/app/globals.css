@@ -16,6 +16,7 @@ body {
   margin: 0;
   background: #f6f8fb;
   color: #111827;
+  overflow-x: hidden;
 }
 
 button,

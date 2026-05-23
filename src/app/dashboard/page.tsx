@@ -1,34 +1,53 @@
 import Link from "next/link";
-import { LayoutShell } from "@/components/LayoutShell";
+import { AlertTriangle, ArrowRight, CheckCircle2, FileSearch, ShieldAlert, TableProperties, UploadCloud, Users, Wrench } from "lucide-react";
 import { CaseStatusBadge } from "@/components/CaseStatusBadge";
 import { DashboardStats } from "@/components/DashboardStats";
-import { listInvoices } from "@/lib/db";
+import { LayoutShell } from "@/components/LayoutShell";
+import { listClaims, listInvoices, listPolicies, listTariffs, listWorkshops } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 export default async function DashboardPage() {
-  const cases = await listInvoices();
+  const [cases, tariffs] = await Promise.all([listInvoices(), listTariffs()]);
+  const [claims, policies, workshops] = await Promise.all([listClaims(), listPolicies(), listWorkshops()]);
   const criticalAlerts = cases.reduce((total, item) => total + item.alerts.filter((alert) => alert.severity === "critical").length, 0);
   const recent = cases.slice(0, 5);
+  const authorizedTariffs = tariffs.filter((item) => item.authorized).length;
+  const openClaims = claims.filter((item) => item.status !== "closed").length;
 
   return (
     <LayoutShell>
       <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="text-sm font-semibold uppercase tracking-wide text-steel">Panel de auditoría</p>
-          <h1 className="mt-1 text-3xl font-semibold text-ink">Control de facturación de siniestros</h1>
+          <p className="text-sm font-semibold uppercase tracking-wide text-steel">Panel administrativo</p>
+          <h1 className="mt-1 text-3xl font-semibold text-ink">Validacion de facturas por poliza, siniestro y convenio</h1>
+          <p className="mt-2 max-w-3xl text-sm text-steel">
+            El flujo real inicia con cliente y poliza, continua con siniestro reportado, taller conveniado y tarifario acordado. La factura del taller se valida contra todas esas bases.
+          </p>
         </div>
         <Link className="focus-ring rounded bg-navy px-4 py-2 text-sm font-semibold text-white" href="/upload">
           Auditar factura
         </Link>
       </div>
+
+      <section className="mb-6 grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-4">
+        <ControlCard icon={<Users className="size-5" />} title="1. Cliente y poliza" value={`${policies.length} polizas`} detail="Titular, vehiculo, placa, cobertura, deducible y limite." href="/clients" />
+        <ControlCard icon={<ShieldAlert className="size-5" />} title="2. Siniestro" value={`${claims.length} reportes`} detail={`${openClaims} abiertos o en revision con alcance autorizado.`} href="/claims" />
+        <ControlCard icon={<Wrench className="size-5" />} title="3. Taller" value={`${workshops.length} convenios`} detail="Taller habilitado, hora de mano de obra y categorias." href="/workshops" />
+        <ControlCard icon={<TableProperties className="size-5" />} title="4. Tarifario" value={`${tariffs.length} conceptos`} detail={`${authorizedTariffs} conceptos autorizados para precios y horas.`} href="/tariffs" />
+        <ControlCard icon={<UploadCloud className="size-5" />} title="5. Factura" value="OCR + reglas" detail="Documento generado por taller y validado contra las bases." href="/upload" />
+        <ControlCard icon={<FileSearch className="size-5" />} title="6. Revision" value={`${cases.length} casos`} detail="Solo observadas o rechazadas pasan a auditor humano." href="/cases" />
+      </section>
+
       <DashboardStats cases={cases} />
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
-        <section className="rounded border border-line bg-white shadow-subtle">
-          <div className="border-b border-line px-5 py-4">
-            <h2 className="font-semibold text-ink">Casos recientes</h2>
+
+      <div className="mt-6 grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="min-w-0 rounded border border-line bg-white shadow-subtle">
+          <div className="flex items-center justify-between border-b border-line px-5 py-4">
+            <h2 className="font-semibold text-ink">Casos auditados recientes</h2>
+            <Link className="text-sm font-semibold text-navy" href="/cases">Ver casos</Link>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[760px] text-left text-sm">
+          <div className="w-full overflow-x-auto">
+            <table className="w-full min-w-full text-left text-sm">
               <thead className="bg-surface text-xs uppercase text-steel">
                 <tr>
                   <th className="px-5 py-3">Factura</th>
@@ -42,9 +61,7 @@ export default async function DashboardPage() {
               <tbody className="divide-y divide-line">
                 {recent.map((item) => (
                   <tr key={item.id}>
-                    <td className="px-5 py-3 font-medium text-navy">
-                      <Link href={`/cases/${item.id}`}>{item.invoiceNumber}</Link>
-                    </td>
+                    <td className="px-5 py-3 font-medium text-navy"><Link href={`/cases/${item.id}`}>{item.invoiceNumber}</Link></td>
                     <td className="px-5 py-3 text-steel">{item.claimNumber}</td>
                     <td className="px-5 py-3 text-steel">{item.workshopName}</td>
                     <td className="px-5 py-3 text-right font-semibold">{formatCurrency(item.total)}</td>
@@ -52,16 +69,50 @@ export default async function DashboardPage() {
                     <td className="px-5 py-3 text-steel">{formatDate(item.createdAt)}</td>
                   </tr>
                 ))}
+                {!recent.length && (
+                  <tr>
+                    <td className="px-5 py-8 text-center text-steel" colSpan={6}>
+                      No hay facturas auditadas. Primero revisa clientes, polizas, siniestros, talleres y tarifario.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </section>
-        <section className="rounded border border-line bg-white p-5 shadow-subtle">
-          <p className="text-sm font-medium text-steel">Alertas críticas</p>
-          <p className="mt-3 text-4xl font-semibold text-rejected">{criticalAlerts}</p>
-          <p className="mt-3 text-sm text-steel">Los casos con duplicado crítico se clasifican automáticamente como rechazados para prevenir pagos repetidos.</p>
+
+        <section className="min-w-0 space-y-4">
+          <div className="rounded border border-line bg-white p-5 shadow-subtle">
+            <div className="mb-3 flex items-center gap-2 text-rejected">
+              <AlertTriangle className="size-5" />
+              <p className="text-sm font-semibold">Alertas criticas</p>
+            </div>
+            <p className="text-4xl font-semibold text-rejected">{criticalAlerts}</p>
+            <p className="mt-3 text-sm text-steel">Polizas inactivas, talleres sin convenio, duplicados o excesos graves bloquean el pago preventivamente.</p>
+          </div>
+          <div className="rounded border border-line bg-white p-5 shadow-subtle">
+            <div className="mb-3 flex items-center gap-2 text-approved">
+              <CheckCircle2 className="size-5" />
+              <p className="text-sm font-semibold">Base lista para auditar</p>
+            </div>
+            <p className="text-sm text-steel">Clientes, polizas, siniestros, talleres y tarifario estan disponibles como base maestra. Las facturas nuevas se comparan contra esos registros.</p>
+          </div>
         </section>
       </div>
     </LayoutShell>
+  );
+}
+
+function ControlCard({ icon, title, value, detail, href }: { icon: React.ReactNode; title: string; value: string; detail: string; href: string }) {
+  return (
+    <Link className="group min-w-0 rounded border border-line bg-white p-5 shadow-subtle transition hover:border-navy/40" href={href}>
+      <div className="mb-4 flex items-center justify-between">
+        <div className="grid size-10 place-items-center rounded bg-surface text-navy">{icon}</div>
+        <ArrowRight className="size-4 text-steel transition group-hover:translate-x-1 group-hover:text-navy" />
+      </div>
+      <p className="text-sm font-semibold text-steel">{title}</p>
+      <p className="mt-2 break-words text-2xl font-semibold text-ink">{value}</p>
+      <p className="mt-2 text-sm text-steel">{detail}</p>
+    </Link>
   );
 }

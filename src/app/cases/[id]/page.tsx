@@ -11,7 +11,8 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
   const { id } = await params;
   const invoice = await getInvoice(id);
   if (!invoice) notFound();
-  const claim = listClaims().find((item) => item.claimNumber === invoice.claimNumber);
+  const claims = await listClaims();
+  const claim = claims.find((item) => item.claimNumber === invoice.claimNumber);
 
   return (
     <LayoutShell>
@@ -23,8 +24,8 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
         </div>
         <CaseStatusBadge status={invoice.status} />
       </div>
-      <div className="grid gap-6 xl:grid-cols-[1fr_360px]">
-        <div className="space-y-6">
+      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0 space-y-6">
           <section className="rounded border border-line bg-white p-5 shadow-subtle">
             <h2 className="mb-4 font-semibold text-ink">Datos de factura</h2>
             <div className="grid gap-3 md:grid-cols-3">
@@ -59,7 +60,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
             <pre className="max-h-72 overflow-auto rounded bg-surface p-3 text-sm text-steel whitespace-pre-wrap">{invoice.rawOcrText || "Sin texto OCR registrado."}</pre>
           </section>
         </div>
-        <aside className="space-y-6">
+        <aside className="min-w-0 space-y-6">
           <section className="rounded border border-line bg-white p-5 shadow-subtle">
             <h2 className="mb-3 font-semibold text-ink">Alertas</h2>
             <div className="space-y-3">

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auditInvoice } from "@/lib/audit/audit-engine";
-import { listClaims, listInvoices, listTariffs, saveInvoice } from "@/lib/db";
+import { listClaims, listInvoices, listPolicies, listTariffs, listWorkshops, saveInvoice } from "@/lib/db";
 import { recognizeInvoiceDocument } from "@/lib/ocr/invoice-recognizer";
 import { uid } from "@/lib/utils";
 import type { ExtractedInvoice, InvoiceRecord } from "@/types/invoice";
@@ -20,10 +20,15 @@ export async function POST(request: Request) {
 
   const previousInvoices = await listInvoices();
   const tariffs = await listTariffs();
+  const claims = await listClaims();
+  const policies = await listPolicies();
+  const workshops = await listWorkshops();
   const report = auditInvoice(body.invoice, {
     previousInvoices,
     tariffs,
-    claims: listClaims(),
+    claims,
+    policies,
+    workshops,
   });
 
   if (body.persist ?? true) {

@@ -1,6 +1,7 @@
 import type { AuditReport } from "@/types/audit";
 import type { Claim } from "@/types/claim";
 import type { ExtractedInvoice, InvoiceRecord } from "@/types/invoice";
+import type { InsurancePolicy, WorkshopAgreement } from "@/types/policy";
 import type { TariffItem } from "@/types/tariff";
 import { validateClaim } from "./claim-validator";
 import { detectDuplicates } from "./duplicate-detector";
@@ -13,6 +14,8 @@ export function auditInvoice(
   context: {
     tariffs: TariffItem[];
     claims: Claim[];
+    policies?: InsurancePolicy[];
+    workshops?: WorkshopAgreement[];
     previousInvoices: InvoiceRecord[];
   },
 ): AuditReport {
@@ -20,7 +23,7 @@ export function auditInvoice(
     ...detectDuplicates(invoice, context.previousInvoices),
     ...validateTaxes(invoice),
     ...validateTariffs(invoice.items, context.tariffs),
-    ...validateClaim(invoice, context.claims),
+    ...validateClaim(invoice, context.claims, context.policies, context.workshops),
   ];
   const riskScore = calculateRiskScore(alerts);
   const status = classifyInvoice(riskScore, alerts);

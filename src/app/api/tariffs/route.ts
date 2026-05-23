@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { listTariffs, upsertTariff } from "@/lib/db";
+import { deleteTariff, listTariffs, upsertTariff } from "@/lib/db";
 import { uid } from "@/lib/utils";
 import type { TariffItem } from "@/types/tariff";
 
@@ -21,4 +21,12 @@ export async function POST(request: Request) {
   };
   await upsertTariff(tariff);
   return NextResponse.json({ tariff });
+}
+
+export async function DELETE(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get("id");
+  if (!id) return NextResponse.json({ error: "Falta id." }, { status: 400 });
+  await deleteTariff(id);
+  return NextResponse.json({ ok: true });
 }
