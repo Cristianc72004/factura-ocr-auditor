@@ -8,14 +8,14 @@ import { reason } from "./reasoning-engine";
 
 function suggestions(pageContext?: AgentRequest["pageContext"], hasInvoice?: boolean) {
   if (pageContext === "case_detail" || hasInvoice) {
-    return ["Resumir este caso", "Explicar alertas", "Comparar contra tarifario", "Buscar duplicados", "Que recomienda el sistema"];
+    return ["Explicar discrepancias", "Comparar contra tarifario", "Buscar duplicados", "¿Qué ítem revisar?", "Qué recomienda el sistema"];
   }
   if (pageContext === "dashboard") {
-    return ["Resume el estado del dia", "Ver casos criticos", "Que debo revisar primero", "Que talleres tienen mas alertas"];
+    return ["Subir factura ahora", "¿Qué discrepancias detectas?", "¿Qué datos faltan?", "Ver casos críticos", "Explicar flujo"];
   }
-  if (pageContext === "upload") return ["Como esta la base para auditar", "Ver casos criticos", "Que valida el motor"];
-  if (pageContext === "generator") return ["Como generar facturas utiles", "Resume el estado del dia", "Que debo auditar luego"];
-  return ["Buscar factura", "Priorizar revision", "Explicar regla de riesgo", "Analizar talleres"];
+  if (pageContext === "upload") return ["Qué valida el motor", "Comparar contra tarifario", "Ver casos críticos", "Qué datos faltan"];
+  if (pageContext === "generator") return ["Cómo generar facturas útiles", "Qué discrepancias probar", "Qué debo auditar luego"];
+  return ["Buscar factura", "Priorizar revisión", "Explicar regla de riesgo", "Analizar talleres"];
 }
 
 export async function runAgent(request: AgentRequest): Promise<AgentResponse> {

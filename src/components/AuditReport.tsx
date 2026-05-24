@@ -21,9 +21,9 @@ export function AuditReport({ report }: { report: AuditReportType }) {
         <div className="rounded bg-surface p-3"><p className="text-xs text-steel">Total</p><p className="font-semibold">{formatCurrency(report.invoice.total)}</p></div>
       </div>
       <div>
-        <h3 className="mb-2 font-semibold text-ink">Alertas encontradas</h3>
+        <h3 className="mb-2 font-semibold text-ink">Discrepancias detectadas</h3>
         <div className="grid gap-3">
-          {report.alerts.length ? report.alerts.map((alert) => <AlertCard key={alert.id} alert={alert} />) : <p className="rounded bg-emerald-50 p-3 text-sm text-approved">No se detectaron alertas relevantes.</p>}
+          {report.alerts.length ? report.alerts.map((alert) => <AlertCard key={alert.id} alert={alert} />) : <p className="rounded bg-emerald-50 p-3 text-sm text-approved">No se detectaron discrepancias relevantes.</p>}
         </div>
       </div>
       <InvoiceItemsTable items={report.invoice.items} />

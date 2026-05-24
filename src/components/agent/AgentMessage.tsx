@@ -1,6 +1,16 @@
 import { cn } from "@/lib/utils";
 
-export function AgentMessage({ role, content }: { role: "admin" | "agent"; content: string }) {
+export function AgentMessage({
+  role,
+  content,
+  suggestions = [],
+  onPick,
+}: {
+  role: "admin" | "agent";
+  content: string;
+  suggestions?: string[];
+  onPick?: (value: string) => void;
+}) {
   const parts = role === "agent" ? content.split(/\s(?=[A-D]\.\s)/).filter(Boolean) : [content];
 
   return (
@@ -14,6 +24,15 @@ export function AgentMessage({ role, content }: { role: "admin" | "agent"; conte
           </div>
         ) : (
           content
+        )}
+        {role === "agent" && suggestions.length > 0 && onPick && (
+          <div className="mt-3 flex flex-wrap gap-2 border-t border-line pt-2">
+            {suggestions.map((suggestion) => (
+              <button key={suggestion} className="rounded border border-line bg-white px-2 py-1 text-xs font-semibold text-navy hover:bg-white/80" type="button" onClick={() => onPick(suggestion)}>
+                {suggestion}
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </div>

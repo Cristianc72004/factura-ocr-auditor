@@ -1,20 +1,23 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Bot, Send, X } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { AgentActionCards, type AgentAction } from "./AgentActionCards";
 import { AgentInsightCard } from "./AgentInsightCard";
 import { AgentMessage } from "./AgentMessage";
-import { AgentSuggestions } from "./AgentSuggestions";
+import { ChatHistoryPanel } from "./ChatHistoryPanel";
+import { chatTitleFrom, createChat, loadChatHistory, saveChatHistory, type StoredChat, type StoredChatMessage } from "@/lib/agent/chat-history";
 import type { AgentInsight, AgentIntent } from "@/lib/agent/agent-types";
 
-type Message = { role: "admin" | "agent"; content: string };
+type Message = StoredChatMessage;
 
-const chatActions: AgentAction[] = [
-  { id: "upload", title: "Cargar factura", detail: "Ir al OCR y auditoria.", href: "/upload", icon: "upload" },
-  { id: "claims", title: "Siniestro", detail: "Registrar o revisar datos.", href: "/claims", icon: "claims" },
-  { id: "flow", title: "Explicar flujo", detail: "Ver pasos recomendados.", prompt: "Explicame el flujo de auditoria con literales y un ejemplo corto.", icon: "help" },
+const initialPanelMessages: Message[] = [
+  {
+    role: "agent",
+    content:
+      "Hola. Soy tu asistente de auditoria. Puedo guiarte para cargar facturas, revisar siniestros, comparar tarifarios y priorizar casos.",
+    suggestions: ["Cargar factura", "Explicar flujo", "Ver casos críticos"],
+  },
 ];
 
 function pageContext(pathname: string) {
@@ -38,14 +41,9 @@ function currentCaseId(pathname: string) {
 export function AgentChatPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const pathname = usePathname();
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "agent",
-      content:
-        "Hola. Soy tu asistente de auditoria. Puedo guiarte para cargar facturas, revisar siniestros, comparar tarifarios y priorizar casos.",
-    },
-  ]);
-  const [suggestions, setSuggestions] = useState(["Que debo revisar primero", "Ver casos criticos", "Analizar talleres"]);
+  const [messages, setMessages] = useState<Message[]>(initialPanelMessages);
+  const [chats, setChats] = useState<StoredChat[]>([]);
+  const [activeChatId, setActiveChatId] = useState("");
   const [insights, setInsights] = useState<AgentInsight[]>([]);
   const [intent, setIntent] = useState<AgentIntent | "">("");
   const [busy, setBusy] = useState(false);
@@ -59,11 +57,45 @@ export function AgentChatPanel({ open, onClose }: { open: boolean; onClose: () =
     return next;
   }, []);
 
+  useEffect(() => {
+    const stored = loadChatHistory();
+    setChats(stored);
+    if (stored[0]) {
+      setActiveChatId(stored[0].id);
+      setMessages(stored[0].messages);
+    } else {
+      const chat = createChat(initialPanelMessages);
+      setActiveChatId(chat.id);
+      setChats([chat]);
+      saveChatHistory([chat]);
+    }
+  }, []);
+
+  function persist(nextMessages: Message[], titleSeed?: string) {
+    setChats((current) => {
+      const title = titleSeed ? chatTitleFrom(titleSeed) : current.find((chat) => chat.id === activeChatId)?.title || "Nueva conversación";
+      const id = activeChatId || `chat_${Date.now().toString(36)}`;
+      const updated: StoredChat = { id, title, updatedAt: new Date().toISOString(), messages: nextMessages };
+      const next = [updated, ...current.filter((chat) => chat.id !== id)];
+      saveChatHistory(next);
+      if (!activeChatId) setActiveChatId(id);
+      return next;
+    });
+  }
+
   async function send(value = input) {
     if (!value.trim()) return;
+    if (value === "Cargar factura") {
+      window.location.href = "/upload";
+      return;
+    }
     setBusy(true);
     setInput("");
-    setMessages((current) => [...current, { role: "admin", content: value }]);
+    setMessages((current) => {
+      const next = [...current, { role: "admin" as const, content: value }];
+      persist(next, value);
+      return next;
+    });
     try {
       const response = await fetch("/api/agent/chat", {
         method: "POST",
@@ -76,8 +108,11 @@ export function AgentChatPanel({ open, onClose }: { open: boolean; onClose: () =
         }),
       });
       const data = await response.json();
-      setMessages((current) => [...current, { role: "agent", content: data.reply || "No pude construir una respuesta." }]);
-      setSuggestions(data.suggestions || []);
+      setMessages((current) => {
+        const next = [...current, { role: "agent" as const, content: data.reply || "No pude construir una respuesta.", suggestions: data.suggestions || [] }];
+        persist(next);
+        return next;
+      });
       setInsights(data.insights || []);
       setIntent(data.intent || "");
     } finally {
@@ -88,6 +123,35 @@ export function AgentChatPanel({ open, onClose }: { open: boolean; onClose: () =
   function submit(event: FormEvent) {
     event.preventDefault();
     void send();
+  }
+
+  function newChat() {
+    const chat = createChat(initialPanelMessages);
+    const next = [chat, ...chats];
+    setMessages(chat.messages);
+    setActiveChatId(chat.id);
+    setChats(next);
+    saveChatHistory(next);
+  }
+
+  function openChat(chat: StoredChat) {
+    setActiveChatId(chat.id);
+    setMessages(chat.messages);
+  }
+
+  function deleteChat(id: string) {
+    const next = chats.filter((chat) => chat.id !== id);
+    setChats(next);
+    saveChatHistory(next);
+    if (id === activeChatId) {
+      const fallback = next[0] ?? createChat(initialPanelMessages);
+      setActiveChatId(fallback.id);
+      setMessages(fallback.messages);
+      if (!next[0]) {
+        setChats([fallback]);
+        saveChatHistory([fallback]);
+      }
+    }
   }
 
   if (!open) return null;
@@ -108,13 +172,10 @@ export function AgentChatPanel({ open, onClose }: { open: boolean; onClose: () =
         </button>
       </div>
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
+        <ChatHistoryPanel chats={chats} activeId={activeChatId} onOpen={openChat} onNew={newChat} onDelete={deleteChat} />
         {messages.map((message, index) => (
-          <AgentMessage key={index} {...message} />
+          <AgentMessage key={index} {...message} onPick={(value) => void send(value)} />
         ))}
-        <div className="rounded border border-line bg-surface p-3">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-steel">Acciones rapidas</p>
-          <AgentActionCards actions={chatActions} compact onAsk={(value) => void send(value)} />
-        </div>
         {busy && <AgentMessage role="agent" content="Analizando datos registrados..." />}
         {!!insights.length && (
           <div className="grid grid-cols-2 gap-2">
@@ -125,7 +186,6 @@ export function AgentChatPanel({ open, onClose }: { open: boolean; onClose: () =
         )}
       </div>
       <div className="border-t border-line p-4">
-        <AgentSuggestions suggestions={suggestions} onPick={(value) => void send(value)} />
         <form className="mt-3 flex gap-2" onSubmit={submit}>
           <input
             className="min-w-0 flex-1 rounded border border-line px-3 py-2 text-sm focus-ring"

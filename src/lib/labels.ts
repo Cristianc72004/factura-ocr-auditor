@@ -32,13 +32,18 @@ export const CATEGORY_OPTIONS = ["repuesto", "material", "mano_obra", "servicio"
 
 export const ALERT_TYPE_LABELS: Record<string, string> = {
   duplicate_uuid: "UUID duplicado",
+  duplicate_invoice: "Factura duplicada",
   duplicate_invoice_number: "Número de factura duplicado",
   duplicate_invoice_context: "Posible factura duplicada",
+  duplicate_fingerprint: "Coincidencia de taller, siniestro y total",
+  duplicate_item: "Ítem duplicado",
   tax_mismatch: "Diferencia de IVA",
   total_mismatch: "Diferencia de total",
   subtotal_mismatch: "Diferencia de subtotal",
   tariff_price: "Precio sobre tarifario",
   tariff_labor_hours: "Horas sobre tarifario",
+  labor_hours: "Horas sobre tarifario",
+  missing_tariff: "Concepto sin tarifario",
   unauthorized_item: "Ítem no autorizado",
   missing_claim: "Siniestro no registrado",
   claim_invoice_mismatch: "Factura no coincide con siniestro",
@@ -60,5 +65,14 @@ export const ALERT_TYPE_LABELS: Record<string, string> = {
 
 export function labelFromMap<T extends Record<string, string>>(map: T, value?: string) {
   if (!value) return "Sin dato";
-  return map[value] ?? value.replace(/_/g, " ");
+  const normalized = value.trim().toLowerCase().replace(/\s+/g, "_").replace(/-/g, "_");
+  return map[value] ?? map[normalized] ?? toTitleLabel(value);
+}
+
+function toTitleLabel(value: string) {
+  return value
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
