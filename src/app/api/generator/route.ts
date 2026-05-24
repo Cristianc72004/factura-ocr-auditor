@@ -5,7 +5,8 @@ import type { GeneratedInvoiceRequest } from "@/types/generated-invoice";
 export async function POST(request: Request) {
   const body = (await request.json()) as Partial<GeneratedInvoiceRequest>;
   const files = await generateDigitFlowInvoices({
-    count: Number(body.count || 1),
+    count: 1,
+    claimNumber: body.claimNumber,
     workshopName: body.workshopName,
     customerName: body.customerName,
     baseClaimNumber: body.baseClaimNumber,

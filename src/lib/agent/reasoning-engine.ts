@@ -1,6 +1,13 @@
 import { formatCurrency } from "@/lib/utils";
 import type { AgentContext, AgentPlan, AgentResult } from "./agent-types";
-import { getCriticalAlerts, getDuplicateCandidates, getObservedInvoices, getRejectedInvoices, getTariffComparison, getWorkshopSummary } from "./audit-agent-tools";
+import {
+  getCriticalAlerts,
+  getDuplicateCandidates,
+  getObservedInvoices,
+  getRejectedInvoices,
+  getTariffComparison,
+  getWorkshopSummary,
+} from "./audit-agent-tools";
 import { explainRule } from "./knowledge-base";
 
 function invoiceHref(id?: string) {
@@ -14,7 +21,38 @@ function topAlert(context: AgentContext) {
 
 function baseSummary(context: AgentContext) {
   const d = context.dashboard;
-  return `${d.policies} polizas, ${d.claims} siniestros, ${d.workshops} talleres y ${d.tariffs} conceptos de tarifario`;
+  return `${d.policies} polizas, ${d.claims} reportes, ${d.workshops} talleres y ${d.tariffs} conceptos de tarifario`;
+}
+
+function alertCount(context: AgentContext, type: string) {
+  return context.invoices.reduce((total, invoice) => total + invoice.alerts.filter((alert) => alert.type === type).length, 0);
+}
+
+function claimForInvoice(context: AgentContext, invoiceNumber?: string) {
+  return context.claims.find((claim) => claim.invoiceNumber === invoiceNumber);
+}
+
+function groupedAlerts(alerts: AgentContext["alerts"]) {
+  const groups = new Map<string, number>();
+  for (const alert of alerts) groups.set(alert.type, (groups.get(alert.type) ?? 0) + 1);
+  return [...groups.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+function commonCaseInsights(invoice: NonNullable<AgentContext["matchedInvoice"]>) {
+  return [
+    {
+      label: "Estado",
+      value: invoice.status,
+      tone: invoice.status === "approved" ? "success" as const : invoice.status === "observed" ? "warning" as const : "danger" as const,
+      href: invoiceHref(invoice.id),
+    },
+    {
+      label: "Riesgo",
+      value: `${invoice.riskScore}/100`,
+      tone: invoice.riskScore > 70 ? "danger" as const : invoice.riskScore > 30 ? "warning" as const : "success" as const,
+    },
+    { label: "Alertas", value: String(invoice.alerts.length), tone: invoice.alerts.length ? "warning" as const : "success" as const },
+  ];
 }
 
 export function reason(plan: AgentPlan, context: AgentContext, message: string): AgentResult {
@@ -24,22 +62,115 @@ export function reason(plan: AgentPlan, context: AgentContext, message: string):
 
   if (plan.intent === "saludo") {
     return {
-      reply: "Hola. Puedo revisar prioridades, casos criticos, talleres con alertas o explicar una factura cuando abras un caso.",
+      reply: "Hola. Puedo ayudarte a seguir el flujo completo: reporte del cliente, factura del taller, cruces de validacion, alertas y decision del auditor.",
       confidence: 0.95,
       sources: ["KnowledgeBase"],
       reasoning: ["saludo detectado"],
       insights: [],
+      suggestions: ["Explicar flujo", "Que datos faltan", "Ver casos criticos"],
     };
   }
 
   if (plan.intent === "ayuda") {
     return {
-      reply:
-        "A. Si ya tienes factura: entra a Carga, sube el PDF o imagen, revisa el texto OCR y presiona Auditar factura. B. Si aún no tienes siniestro: entra a Siniestros y registra póliza, asegurado, vehículo, taller autorizado y servicios cubiertos. C. Si quieres probar: entra a Generador, crea una factura DigitFlow y luego súbela en Carga. D. Después de auditar: abre Casos para ver alertas, riesgo y recomendación. Ejemplo: Generador -> Carga -> Auditar factura -> Abrir caso.",
+      reply: "Puedo actuar como copiloto del auditor. Me puedes pedir que explique el flujo, revise datos faltantes, resuma una factura, compare contra tarifario, detecte duplicados, analice discrepancias entre reporte y factura o priorice casos.",
       confidence: 0.95,
       sources: ["KnowledgeBase"],
       reasoning: ["ayuda solicitada"],
       insights: [],
+      suggestions: ["Explicar flujo", "Que discrepancias detectas", "Priorizar revision"],
+    };
+  }
+
+  if (plan.intent === "explicar_flujo") {
+    return {
+      reply: [
+        "Flujo recomendado:",
+        "1. El cliente reporta el siniestro e informa el numero de factura relacionada.",
+        "2. El taller emite y sube la factura.",
+        "3. El sistema extrae por OCR: factura, taller, asegurado, vehiculo, placa, items, subtotal, IVA y total.",
+        "4. Se cruza reporte del cliente vs factura del taller: numero de factura, cliente, vehiculo, placa y danos declarados.",
+        "5. Se valida convenio del taller y tarifario acordado.",
+        "6. Se detectan sobreprecios, duplicados, totales inconsistentes e items no relacionados con el dano.",
+        "7. El auditor revisa los casos observados o rechazados.",
+      ].join("\n"),
+      confidence: 0.96,
+      sources: ["KnowledgeBase"],
+      reasoning: ["flujo operativo"],
+      insights: [
+        { label: "Reportes", value: String(context.dashboard.claims), tone: "neutral" },
+        { label: "Facturas", value: String(context.dashboard.total), tone: "neutral" },
+        { label: "Criticas", value: String(context.dashboard.criticalAlerts), tone: context.dashboard.criticalAlerts ? "danger" : "success" },
+      ],
+      suggestions: ["Que datos faltan", "Que valida el motor", "Subir factura ahora"],
+    };
+  }
+
+  if (plan.intent === "datos_faltantes") {
+    const claimsWithoutInvoice = context.claims.filter((item) => !item.invoiceNumber).length;
+    const invoicesWithoutClaim = context.invoices.filter((item) => !context.claims.some((claimItem) => claimItem.claimNumber === item.claimNumber)).length;
+    const missingClaimAlerts = alertCount(context, "missing_claim");
+    const missingTariffs = alertCount(context, "missing_tariff");
+    const missingWorkshops = alertCount(context, "missing_workshop_agreement");
+    const blockers = [
+      context.dashboard.policies === 0 ? "faltan polizas de clientes" : "",
+      context.dashboard.claims === 0 ? "faltan reportes de siniestro del cliente" : "",
+      context.dashboard.workshops === 0 ? "faltan talleres conveniados" : "",
+      context.dashboard.tariffs === 0 ? "falta tarifario acordado" : "",
+      invoicesWithoutClaim ? `${invoicesWithoutClaim} factura(s) sin reporte de siniestro vinculado` : "",
+      claimsWithoutInvoice ? `${claimsWithoutInvoice} reporte(s) sin numero de factura informada` : "",
+      missingTariffs ? `${missingTariffs} item(s) sin tarifario` : "",
+      missingWorkshops ? `${missingWorkshops} factura(s) con taller sin convenio` : "",
+      missingClaimAlerts ? `${missingClaimAlerts} alerta(s) por siniestro pendiente` : "",
+    ].filter(Boolean);
+    return {
+      reply: blockers.length
+        ? `Datos pendientes detectados: ${blockers.join("; ")}. Prioriza completar esos puntos antes de aprobar pagos.`
+        : "La base minima esta completa: hay polizas, reportes de siniestro, talleres, tarifario y facturas vinculadas. Puedes enfocarte en las alertas de riesgo.",
+      confidence: 0.9,
+      sources: ["Invoice", "Claim", "Policy", "Workshop", "TariffItem"],
+      reasoning: ["revision de completitud"],
+      insights: [
+        { label: "Reportes sin factura", value: String(claimsWithoutInvoice), tone: claimsWithoutInvoice ? "warning" : "success" },
+        { label: "Facturas sin reporte", value: String(invoicesWithoutClaim), tone: invoicesWithoutClaim ? "warning" : "success" },
+        { label: "Items sin tarifario", value: String(missingTariffs), tone: missingTariffs ? "warning" : "success" },
+      ],
+      suggestions: ["Explicar flujo", "Ver casos criticos", "Comparar reporte con factura"],
+    };
+  }
+
+  if (plan.intent === "analizar_discrepancias") {
+    sources.add("Invoice");
+    sources.add("Claim");
+    sources.add("AuditAlert");
+    if (invoice) {
+      const relatedClaim = claim || claimForInvoice(context, invoice.invoiceNumber);
+      const groups = groupedAlerts(invoice.alerts);
+      const mismatch = relatedClaim?.invoiceNumber && relatedClaim.invoiceNumber !== invoice.invoiceNumber;
+      return {
+        reply: [
+          invoice.alerts.length ? `La factura ${invoice.invoiceNumber} tiene ${invoice.alerts.length} discrepancia(s).` : `La factura ${invoice.invoiceNumber} no tiene discrepancias registradas.`,
+          relatedClaim ? `Reporte del cliente: siniestro ${relatedClaim.claimNumber}, factura informada ${relatedClaim.invoiceNumber || "sin dato"}, dano: ${relatedClaim.reportedDamage}.` : "No encontre reporte del cliente vinculado.",
+          mismatch ? "Hay diferencia entre la factura informada por el cliente y la factura del taller." : "El numero de factura del reporte no presenta diferencia registrada.",
+          groups.length ? `Alertas principales: ${groups.map(([type, count]) => `${type} (${count})`).join(", ")}.` : "No hay alertas agrupadas.",
+        ].join("\n"),
+        confidence: 0.92,
+        sources: [...sources],
+        reasoning: ["cruce factura-reporte-alertas"],
+        insights: commonCaseInsights(invoice).concat({ label: "Reporte", value: relatedClaim ? "vinculado" : "faltante", tone: relatedClaim ? "success" : "warning" }),
+        suggestions: ["Comparar contra tarifario", "Buscar duplicados", "Que recomienda el sistema"],
+      };
+    }
+    const groups = groupedAlerts(context.invoices.flatMap((item) => item.alerts));
+    return {
+      reply: groups.length
+        ? `Discrepancias mas frecuentes: ${groups.slice(0, 5).map(([type, count]) => `${type} (${count})`).join(", ")}. Abre un caso para ver el cruce especifico entre reporte del cliente y factura del taller.`
+        : "No hay discrepancias registradas todavia. Cuando audites facturas, aqui podre resumir diferencias por reporte, tarifario, duplicados y totales.",
+      confidence: 0.86,
+      sources: [...sources],
+      reasoning: ["agregacion de alertas"],
+      insights: groups.slice(0, 4).map(([type, count]) => ({ label: type, value: String(count), tone: "warning" as const })),
+      suggestions: ["Ver casos criticos", "Priorizar revision", "Que datos faltan"],
     };
   }
 
@@ -48,7 +179,7 @@ export function reason(plan: AgentPlan, context: AgentContext, message: string):
     const d = context.dashboard;
     return {
       reply: d.total
-        ? `Estado actual: ${d.total} facturas auditadas, ${d.approved} aprobadas, ${d.observed} observadas y ${d.rejected} rechazadas. Hay ${d.criticalAlerts} alertas criticas.`
+        ? `Estado actual: ${d.total} facturas auditadas, ${d.approved} aprobadas, ${d.observed} observadas y ${d.rejected} rechazadas. Hay ${d.criticalAlerts} alertas criticas. Base: ${baseSummary(context)}.`
         : `Todavia no hay facturas auditadas. La base administrativa tiene ${baseSummary(context)} registrados para iniciar validaciones.`,
       confidence: 0.92,
       sources: [...sources],
@@ -58,6 +189,7 @@ export function reason(plan: AgentPlan, context: AgentContext, message: string):
         { label: "Observadas", value: String(d.observed), tone: "warning" },
         { label: "Rechazadas", value: String(d.rejected), tone: "danger" },
       ],
+      suggestions: ["Que discrepancias detectas", "Que datos faltan", "Priorizar revision"],
     };
   }
 
@@ -71,11 +203,12 @@ export function reason(plan: AgentPlan, context: AgentContext, message: string):
       return {
         reply: context.dashboard.total
           ? "No hay facturas observadas o rechazadas pendientes. Hoy no hay revision humana prioritaria."
-          : `No hay facturas auditadas para priorizar. Primero confirma la base: ${baseSummary(context)}. Luego genera o sube una factura para activar la auditoria.`,
+          : `No hay facturas auditadas para priorizar. Primero confirma la base: ${baseSummary(context)}. Luego sube una factura para activar la auditoria.`,
         confidence: 0.88,
         sources: [...sources],
         reasoning: ["no hay casos pendientes"],
         insights: [],
+        suggestions: ["Explicar flujo", "Subir factura ahora"],
       };
     }
     return {
@@ -84,6 +217,7 @@ export function reason(plan: AgentPlan, context: AgentContext, message: string):
       sources: [...sources],
       reasoning: ["orden por riesgo y recencia"],
       insights: candidates.map((item) => ({ label: item.invoiceNumber, value: `${item.riskScore}/100`, tone: item.status === "rejected" ? "danger" : "warning", href: invoiceHref(item.id) })),
+      suggestions: ["Explicar discrepancias", "Comparar contra tarifario", "Buscar duplicados"],
     };
   }
 
@@ -101,6 +235,7 @@ export function reason(plan: AgentPlan, context: AgentContext, message: string):
       sources: [...sources, "AuditAlert"],
       reasoning: ["ranking por rechazos y alertas"],
       insights: ranking.map((item) => ({ label: item.workshopName, value: `${item.rejected} rechazos / ${item.alerts} alertas`, tone: item.rejected ? "danger" : item.observed ? "warning" : "neutral" })),
+      suggestions: ["Que discrepancias detectas", "Ver casos criticos"],
     };
   }
 
@@ -117,6 +252,7 @@ export function reason(plan: AgentPlan, context: AgentContext, message: string):
         sources: [...sources],
         reasoning: ["consulta de alertas criticas"],
         insights: [],
+        suggestions: ["Que datos faltan", "Explicar flujo"],
       };
     }
     return {
@@ -125,6 +261,7 @@ export function reason(plan: AgentPlan, context: AgentContext, message: string):
       sources: [...sources],
       reasoning: ["alertas criticas ordenadas"],
       insights: critical.map((item) => ({ label: item.invoice.invoiceNumber, value: item.type, tone: "danger", href: invoiceHref(item.invoice.id) })),
+      suggestions: ["Priorizar revision", "Explicar discrepancias"],
     };
   }
 
@@ -134,33 +271,35 @@ export function reason(plan: AgentPlan, context: AgentContext, message: string):
     const duplicates = invoice
       ? invoice.alerts.filter((alert) => alert.type.includes("duplicate")).map((alert) => ({ invoice, alert }))
       : getDuplicateCandidates(context.invoices);
-    if (!duplicates.length) return { reply: "No encontre señales de duplicado con los datos disponibles.", confidence: 0.82, sources: [...sources], reasoning: ["sin alertas duplicate"], insights: [] };
+    if (!duplicates.length) return { reply: "No encontre senales de duplicado con los datos disponibles.", confidence: 0.82, sources: [...sources], reasoning: ["sin alertas duplicate"], insights: [], suggestions: ["Comparar reporte con factura"] };
     return {
-      reply: `Si hay señales de duplicado. La mas importante es ${duplicates[0].alert.type} en factura ${duplicates[0].invoice.invoiceNumber}: ${duplicates[0].alert.message}`,
+      reply: `Si hay senales de duplicado. La mas importante es ${duplicates[0].alert.type} en factura ${duplicates[0].invoice.invoiceNumber}: ${duplicates[0].alert.message}`,
       confidence: 0.9,
       sources: [...sources],
       reasoning: ["alertas de duplicado encontradas"],
       insights: duplicates.slice(0, 3).map((item) => ({ label: item.invoice.invoiceNumber, value: item.alert.severity, tone: "danger", href: invoiceHref(item.invoice.id) })),
+      suggestions: ["Explicar discrepancias", "Priorizar revision"],
     };
   }
 
   if (plan.intent === "comparar_tarifario") {
-    if (!invoice) return { reply: "Necesito una factura actual o un numero de factura para comparar contra tarifario.", confidence: 0.62, sources: ["TariffItem"], reasoning: ["falta factura"], insights: [] };
+    if (!invoice) return { reply: "Necesito una factura actual o un numero de factura para comparar contra tarifario.", confidence: 0.62, sources: ["TariffItem"], reasoning: ["falta factura"], insights: [], suggestions: ["Ver casos criticos"] };
     sources.add("Invoice");
     sources.add("TariffItem");
     const tariffAlerts = getTariffComparison(invoice.alerts);
-    if (!tariffAlerts.length) return { reply: `La factura ${invoice.invoiceNumber} no tiene alertas de tarifario registradas. Sus items estan dentro de los controles cargados.`, confidence: 0.86, sources: [...sources], reasoning: ["sin alertas tarifarias"], insights: [] };
+    if (!tariffAlerts.length) return { reply: `La factura ${invoice.invoiceNumber} no tiene alertas de tarifario registradas. Sus items estan dentro de los controles cargados.`, confidence: 0.86, sources: [...sources], reasoning: ["sin alertas tarifarias"], insights: commonCaseInsights(invoice), suggestions: ["Comparar reporte con factura"] };
     return {
       reply: `La factura ${invoice.invoiceNumber} tiene ${tariffAlerts.length} observaciones de tarifario. La principal: ${tariffAlerts[0].message}`,
       confidence: 0.9,
       sources: [...sources, "AuditAlert"],
       reasoning: ["alertas de tarifario filtradas"],
       insights: tariffAlerts.map((alert) => ({ label: alert.type, value: alert.severity, tone: alert.severity === "high" || alert.severity === "critical" ? "danger" : "warning" })),
+      suggestions: ["Explicar discrepancias", "Que item revisar", "Que recomienda el sistema"],
     };
   }
 
   if (plan.intent === "explicar_regla") {
-    return { reply: explainRule(message), confidence: 0.84, sources: ["KnowledgeBase"], reasoning: ["explicacion local de reglas"], insights: [] };
+    return { reply: explainRule(message), confidence: 0.84, sources: ["KnowledgeBase"], reasoning: ["explicacion local de reglas"], insights: [], suggestions: ["Explicar flujo", "Que datos faltan"] };
   }
 
   if (["resumen_caso", "explicar_alerta", "buscar_factura", "seguimiento_contextual"].includes(plan.intent)) {
@@ -173,6 +312,7 @@ export function reason(plan: AgentPlan, context: AgentContext, message: string):
         sources: ["Invoice"],
         reasoning: ["factura no encontrada"],
         insights: [],
+        suggestions: ["Ver casos criticos", "Explicar flujo"],
       };
     }
     sources.add("Invoice");
@@ -183,38 +323,37 @@ export function reason(plan: AgentPlan, context: AgentContext, message: string):
       `Factura ${invoice.invoiceNumber}: estado ${invoice.status}, riesgo ${invoice.riskScore}/100, total ${formatCurrency(invoice.total)}.`,
       `Taller: ${invoice.workshopName}. Siniestro: ${invoice.claimNumber}.`,
       invoice.alerts.length ? `Tiene ${invoice.alerts.length} alertas. La mas importante es ${alert?.severity}: ${alert?.message}` : "No tiene alertas registradas.",
-      claim ? `El siniestro reporta: ${claim.reportedDamage}.` : "No encontre el siniestro asociado.",
+      claim ? `Reporte del cliente: factura informada ${claim.invoiceNumber || "sin dato"}, dano ${claim.reportedDamage}.` : "No encontre el reporte del cliente asociado.",
     ];
     return {
-      reply: parts.join(" "),
+      reply: parts.join("\n"),
       confidence: 0.91,
       sources: [...sources],
       reasoning: ["resumen de factura", "alerta principal", "siniestro asociado"],
-      insights: [
-        { label: "Estado", value: invoice.status, tone: invoice.status === "approved" ? "success" : invoice.status === "observed" ? "warning" : "danger", href: invoiceHref(invoice.id) },
-        { label: "Riesgo", value: `${invoice.riskScore}/100`, tone: invoice.riskScore > 70 ? "danger" : invoice.riskScore > 30 ? "warning" : "success" },
-        { label: "Alertas", value: String(invoice.alerts.length), tone: invoice.alerts.length ? "warning" : "success" },
-      ],
+      insights: commonCaseInsights(invoice),
+      suggestions: ["Explicar discrepancias", "Comparar contra tarifario", "Buscar duplicados"],
     };
   }
 
   if (plan.intent === "buscar_siniestro") {
-    if (!claim) return { reply: "No encontre ese siniestro. Verifica el numero o busca por factura asociada.", confidence: 0.62, sources: ["Claim"], reasoning: ["siniestro no encontrado"], insights: [] };
-    const related = context.invoices.filter((item) => item.claimNumber === claim.claimNumber);
+    if (!claim) return { reply: "No encontre ese siniestro. Verifica el numero o busca por factura asociada.", confidence: 0.62, sources: ["Claim"], reasoning: ["siniestro no encontrado"], insights: [], suggestions: ["Que datos faltan"] };
+    const related = context.invoices.filter((item) => item.claimNumber === claim.claimNumber || item.invoiceNumber === claim.invoiceNumber);
     return {
-      reply: `Siniestro ${claim.claimNumber}: asegurado ${claim.insuredName}, vehículo ${claim.vehicle} (${claim.licensePlate}). Daño reportado: ${claim.reportedDamage}. Tiene ${related.length} facturas auditadas asociadas.`,
+      reply: `Siniestro ${claim.claimNumber}: asegurado ${claim.insuredName}, vehiculo ${claim.vehicle} (${claim.licensePlate}). Factura informada por cliente: ${claim.invoiceNumber || "sin dato"}. Dano reportado: ${claim.reportedDamage}. Tiene ${related.length} factura(s) auditadas asociadas.`,
       confidence: 0.9,
       sources: ["Claim", "Invoice"],
       reasoning: ["siniestro encontrado", "facturas relacionadas"],
       insights: related.map((item) => ({ label: item.invoiceNumber, value: item.status, href: invoiceHref(item.id), tone: item.status === "approved" ? "success" : item.status === "observed" ? "warning" : "danger" })),
+      suggestions: ["Comparar reporte con factura", "Priorizar revision"],
     };
   }
 
   return {
-    reply: "Puedo ayudarte, pero necesito un poco mas de contexto: indica una factura, un siniestro, un taller o pide una prioridad de revision.",
+    reply: "Puedo ayudarte, pero necesito un poco mas de contexto: dime si quieres revisar flujo, datos faltantes, una factura, un siniestro, un taller o una prioridad de revision.",
     confidence: 0.55,
     sources: ["KnowledgeBase"],
     reasoning: ["intencion desconocida"],
     insights: [],
+    suggestions: ["Explicar flujo", "Que datos faltan", "Ver casos criticos"],
   };
 }

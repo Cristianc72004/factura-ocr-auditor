@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { GeneratedInvoiceFile, GeneratedInvoiceRequest } from "@/types/generated-invoice";
-import { demoClaims, demoPolicies, demoWorkshops } from "./mock-data";
+import type { Claim } from "@/types/claim";
+import { listClaims, listPolicies, listWorkshops } from "./db";
 import { isBlobStorageEnabled, writeStoredFile } from "./storage";
 import { uid } from "./utils";
 
@@ -23,6 +24,9 @@ const lineCatalog: GeneratedLine[] = [
   { code: "MO-CH-02", description: "Reparacion y preparacion de guardabarro", quantity: 2, unit: "h", unitPrice: 18000, discount: 0 },
   { code: "MO-CH-03", description: "Pintura de piezas", quantity: 2.5, unit: "h", unitPrice: 18000, discount: 0 },
   { code: "SV-DIG-01", description: "Diagnostico computarizado OBD-II", quantity: 1, unit: "u", unitPrice: 12000, discount: 10 },
+  { code: "SER-ALI-001", description: "Alineacion y balanceo", quantity: 1, unit: "u", unitPrice: 38000, discount: 0 },
+  { code: "RV-FOR-2021", description: "Guardabarro delantero derecho", quantity: 1, unit: "u", unitPrice: 52000, discount: 0 },
+  { code: "SV-EXT-01", description: "Lavado y detailing", quantity: 1, unit: "u", unitPrice: 18000, discount: 0 },
 ];
 
 function money(value: number) {
@@ -36,18 +40,21 @@ function sequenceNumber(value: number) {
   return `0001-${String(value).padStart(8, "0")}`;
 }
 
-function claimNumber(base: string, index: number) {
-  const requested = demoClaims.find((claim) => claim.claimNumber === base);
-  if (requested && index === 0) return requested.claimNumber;
-  const registered = demoClaims[index % demoClaims.length];
-  if (registered) return registered.claimNumber;
-  const numeric = Number(base.replace(/\D/g, "") || "1234567") + index;
-  return String(numeric).padStart(8, "0").slice(-8);
+function invoiceSequenceFromReport(claim?: Claim, fallback = 1234) {
+  const match = claim?.invoiceNumber?.match(/\d{4}-(\d{8})/);
+  return match ? Number(match[1]) : fallback;
 }
 
-function pickLines(index: number) {
-  const count = 5 + (index % 4);
-  return lineCatalog.slice(index % 2, index % 2 + count);
+function pickLines(claim: Claim | undefined, index: number) {
+  if (!claim) return lineCatalog.slice(0, 5);
+  const text = `${claim.reportedDamage} ${claim.authorizedServices.join(" ")}`.toLowerCase();
+  const selected = lineCatalog.filter((line) => {
+    const desc = line.description.toLowerCase();
+    return text.split(/[,\s]+/).some((token) => token.length > 4 && desc.includes(token));
+  });
+  const unique = Array.from(new Map(selected.map((line) => [line.code, line])).values());
+  if (unique.length >= 3) return unique.slice(0, 7);
+  return lineCatalog.slice(index % 2, index % 2 + 5);
 }
 
 function lineTotal(line: GeneratedLine, index: number) {
@@ -104,17 +111,20 @@ async function createPdf(params: {
   index: number;
   invoiceNumber: string;
   claimNumber: string;
+  claim?: Awaited<ReturnType<typeof listClaims>>[number];
+  policies: Awaited<ReturnType<typeof listPolicies>>;
+  workshops: Awaited<ReturnType<typeof listWorkshops>>;
 }) {
   const pdf = await PDFDocument.create();
   const page = pdf.addPage([595, 842]);
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  const claim = demoClaims.find((item) => item.claimNumber === params.claimNumber) ?? demoClaims[params.index % demoClaims.length];
-  const policy = demoPolicies.find((item) => item.policyNumber === claim?.policyNumber) ?? demoPolicies[0];
-  const workshop = demoWorkshops.find((item) => item.workshopName === (params.request.workshopName || "DigitFlow Solutions S.A.S.")) ?? demoWorkshops[0];
+  const claim = params.claim;
+  const policy = params.policies.find((item) => item.policyNumber === claim?.policyNumber) ?? params.policies[0];
+  const workshop = params.workshops.find((item) => item.workshopName === (params.request.workshopName || claim?.authorizedWorkshopNames[0])) ?? params.workshops[0];
   const vehicle = { name: claim?.vehicle || policy.vehicle, plate: claim?.licensePlate || policy.licensePlate };
   const insuredName = claim?.insuredName || policy.clientName;
-  const lines = pickLines(params.index);
+  const lines = pickLines(claim, params.index);
   const emitted = new Date(2024, 4, 28 + (params.index % 3));
   const subtotal = Number(lines.reduce((total, line) => total + lineTotal(line, params.index), 0).toFixed(2));
   const tax = Number((subtotal * 0.21).toFixed(2));
@@ -203,15 +213,17 @@ async function createPdf(params: {
 }
 
 export async function generateDigitFlowInvoices(request: GeneratedInvoiceRequest): Promise<GeneratedInvoiceFile[]> {
-  const count = Math.min(Math.max(Number(request.count || 1), 1), 25);
-  const baseInvoiceNumber = Number(request.baseInvoiceNumber || 1234);
-  const baseClaimNumber = request.baseClaimNumber || "01234567";
+  const count = 1;
+  const [claims, policies, workshops] = await Promise.all([listClaims(), listPolicies(), listWorkshops()]);
+  const claim = claims.find((item) => item.claimNumber === (request.claimNumber || request.baseClaimNumber)) ?? claims[0];
+  const baseInvoiceNumber = invoiceSequenceFromReport(claim, Number(request.baseInvoiceNumber || 1234));
+  const baseClaimNumber = claim?.claimNumber || request.baseClaimNumber || "01234567";
 
   const files: GeneratedInvoiceFile[] = [];
   for (let index = 0; index < count; index += 1) {
     const invoiceNumber = sequenceNumber(baseInvoiceNumber + index);
-    const generatedClaimNumber = claimNumber(baseClaimNumber, index);
-    const pdf = await createPdf({ request, index, invoiceNumber, claimNumber: generatedClaimNumber });
+    const generatedClaimNumber = baseClaimNumber;
+    const pdf = await createPdf({ request, index, invoiceNumber, claimNumber: generatedClaimNumber, claim, policies, workshops });
     const fileName = `Factura_DigitFlow_${invoiceNumber.replace("-", "_")}_${uid("gen")}.pdf`;
     const stored = await writeStoredFile({
       storageKey: `generated/${fileName}`,

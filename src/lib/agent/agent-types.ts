@@ -17,6 +17,9 @@ export type AgentIntent =
   | "explicar_regla"
   | "consulta_dashboard"
   | "recomendacion_auditor"
+  | "explicar_flujo"
+  | "datos_faltantes"
+  | "analizar_discrepancias"
   | "seguimiento_contextual"
   | "saludo"
   | "ayuda"
@@ -74,6 +77,7 @@ export type AgentResult = {
   sources: string[];
   reasoning: string[];
   insights: AgentInsight[];
+  suggestions?: string[];
 };
 
 export type AgentResponse = {

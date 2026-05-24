@@ -8,14 +8,15 @@ import { reason } from "./reasoning-engine";
 
 function suggestions(pageContext?: AgentRequest["pageContext"], hasInvoice?: boolean) {
   if (pageContext === "case_detail" || hasInvoice) {
-    return ["Explicar discrepancias", "Comparar contra tarifario", "Buscar duplicados", "¿Qué ítem revisar?", "Qué recomienda el sistema"];
+    return ["Explicar discrepancias", "Comparar contra tarifario", "Buscar duplicados", "Que item revisar", "Que recomienda el sistema"];
   }
   if (pageContext === "dashboard") {
-    return ["Subir factura ahora", "¿Qué discrepancias detectas?", "¿Qué datos faltan?", "Ver casos críticos", "Explicar flujo"];
+    return ["Explicar flujo", "Que datos faltan", "Que discrepancias detectas", "Ver casos criticos", "Priorizar revision"];
   }
-  if (pageContext === "upload") return ["Qué valida el motor", "Comparar contra tarifario", "Ver casos críticos", "Qué datos faltan"];
-  if (pageContext === "generator") return ["Cómo generar facturas útiles", "Qué discrepancias probar", "Qué debo auditar luego"];
-  return ["Buscar factura", "Priorizar revisión", "Explicar regla de riesgo", "Analizar talleres"];
+  if (pageContext === "upload") return ["Que valida el motor", "Que datos faltan", "Explicar flujo", "Ver casos criticos"];
+  if (pageContext === "claims") return ["Como registrar reporte", "Que datos faltan", "Comparar reporte con factura"];
+  if (pageContext === "generator") return ["Como generar facturas utiles", "Que discrepancias probar", "Que debo auditar luego"];
+  return ["Buscar factura", "Priorizar revision", "Explicar regla de riesgo", "Analizar talleres"];
 }
 
 export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
@@ -41,7 +42,7 @@ export async function runAgent(request: AgentRequest): Promise<AgentResponse> {
     reply,
     intent,
     contextUsed: contextUsed(result),
-    suggestions: suggestions(request.pageContext, Boolean(context.matchedInvoice)),
+    suggestions: result.suggestions ?? suggestions(request.pageContext, Boolean(context.matchedInvoice)),
     insights: result.insights,
   };
 }

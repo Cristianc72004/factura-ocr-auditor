@@ -10,7 +10,7 @@ export const knowledgeBase = {
   duplicado:
     "Un duplicado puede detectarse por UUID repetido, numero de factura repetido o misma combinacion taller-siniestro-total.",
   siniestro:
-    "El siniestro reportado define accidente, vehiculo, placa, dano y servicios autorizados que la factura puede cobrar.",
+    "El reporte del siniestro lo aporta el cliente. Debe incluir numero de siniestro, numero de factura informada, poliza, asegurado, vehiculo, placa, dano reportado y servicios autorizados.",
   mano_obra:
     "La mano de obra fuera de rango ocurre cuando horas o precio por hora superan el convenio del taller o el tarifario.",
   riesgo:
@@ -18,7 +18,9 @@ export const knowledgeBase = {
   reporte:
     "El reporte de auditoria resume estado, factura, siniestro, alertas, items, totales calculados y recomendacion.",
   motor:
-    "El motor valida factura contra poliza, siniestro reportado, convenio del taller, tarifario, totales, UUID, duplicados e items autorizados.",
+    "El motor valida factura contra reporte del cliente, poliza, convenio del taller, tarifario, totales, UUID, duplicados e items autorizados. Tambien verifica si el dano reportado corresponde a los items cobrados.",
+  flujo:
+    "El flujo correcto es: cliente reporta siniestro con numero de factura, taller sube factura, OCR extrae datos, motor cruza reporte vs factura, valida tarifario y genera alertas para auditor.",
   generador:
     "El generador crea facturas PDF de prueba con el formato reconocido. Sirve para producir muestras, auditarlas y verificar reglas sin depender de documentos externos.",
 };
@@ -31,6 +33,7 @@ export function explainRule(message: string) {
   if (value.includes("tarif")) return knowledgeBase.tarifario;
   if (value.includes("duplic")) return knowledgeBase.duplicado;
   if (value.includes("siniestro")) return knowledgeBase.siniestro;
+  if (value.includes("flujo") || value.includes("proceso")) return knowledgeBase.flujo;
   if (value.includes("mano") || value.includes("hora")) return knowledgeBase.mano_obra;
   if (value.includes("riesgo") || value.includes("score")) return knowledgeBase.riesgo;
   if (value.includes("motor") || value.includes("valida")) return knowledgeBase.motor;

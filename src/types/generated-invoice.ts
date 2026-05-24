@@ -1,5 +1,6 @@
 export type GeneratedInvoiceRequest = {
-  count: number;
+  count?: number;
+  claimNumber?: string;
   workshopName?: string;
   customerName?: string;
   baseClaimNumber?: string;

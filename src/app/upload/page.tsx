@@ -7,6 +7,7 @@ import { ExtractedInvoiceForm } from "@/components/ExtractedInvoiceForm";
 import { FileUploader } from "@/components/FileUploader";
 import { LayoutShell } from "@/components/LayoutShell";
 import { OcrPreview } from "@/components/OcrPreview";
+import { CompletenessIndicator, ConfidenceMeter, StatusHint, WorkflowSteps } from "@/components/VisualIndicators";
 import type { AuditReport as AuditReportType } from "@/types/audit";
 import type { DocumentRecognition } from "@/types/document";
 import type { ExtractedInvoice } from "@/types/invoice";
@@ -135,16 +136,30 @@ export default function UploadPage() {
     }
   }
 
+  const requiredFields = [invoice.invoiceNumber, invoice.claimNumber, invoice.workshopName, invoice.insuredName, invoice.vehicle, invoice.licensePlate, invoice.date, invoice.total];
+  const completedFields = requiredFields.filter((value) => Boolean(value)).length;
+  const uploadSteps = [
+    { label: "Documento", status: uploadedFile ? "done" : busy ? "current" : "current" },
+    { label: "OCR", status: rawText ? "done" : uploadedFile ? "current" : "pending" },
+    { label: "Datos", status: completedFields >= 6 && invoice.items.length ? "done" : rawText ? "current" : "pending" },
+    { label: "Auditoria", status: report ? "done" : recognition?.isValid === false ? "blocked" : invoice.items.length ? "current" : "pending" },
+  ] as const;
+
   return (
     <LayoutShell>
       <div className="mb-6">
         <p className="text-sm font-semibold uppercase tracking-wide text-steel">Carga y OCR</p>
         <h1 className="mt-1 text-3xl font-semibold text-ink">Auditar nueva factura</h1>
       </div>
+      <div className="mb-6">
+        <WorkflowSteps steps={uploadSteps.map((step) => ({ label: step.label, status: step.status }))} />
+      </div>
       {error && <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-rejected">{error}</div>}
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(280px,380px)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-4">
           <FileUploader uploadedFile={uploadedFile} busy={busy} onUpload={upload} />
+          <CompletenessIndicator label="Datos clave" completed={completedFields} total={requiredFields.length} />
+          <CompletenessIndicator label="Items cobrados" completed={invoice.items.length ? 1 : 0} total={1} />
           <button className="focus-ring w-full rounded bg-navy px-4 py-3 text-sm font-semibold text-white disabled:opacity-50" disabled={busy || invoice.items.length === 0 || recognition?.isValid === false} onClick={audit}>
             Auditar factura
           </button>
@@ -156,13 +171,9 @@ export default function UploadPage() {
         </div>
         <div className="grid min-w-0 gap-6">
           {recognition && (
-            <div className={recognition.isValid ? "rounded border border-emerald-200 bg-emerald-50 p-4 text-sm text-approved" : "rounded border border-red-200 bg-red-50 p-4 text-sm text-rejected"}>
-              <p className="font-semibold">{recognition.isValid ? "Factura válida reconocida" : "Documento no válido"}</p>
-              <p className="mt-1">{recognition.message}</p>
-              <p className="mt-2 text-xs">Confianza: {Math.round(recognition.confidence * 100)}%</p>
-              {!recognition.isValid && recognition.missingSignals.length > 0 && (
-                <p className="mt-2 text-xs">Faltan señales: {recognition.missingSignals.join(", ")}</p>
-              )}
+            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+              <StatusHint tone={recognition.isValid ? "success" : "danger"} title={recognition.isValid ? "Factura valida" : "Documento no valido"} value={recognition.message} />
+              <ConfidenceMeter value={recognition.confidence} valid={recognition.isValid} />
             </div>
           )}
           <OcrPreview rawText={rawText} onChange={setRawText} />

@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, CheckCircle2, FileSearch, ShieldAlert, TableProperties, UploadCloud, Users, Wrench } from "lucide-react";
+import { ArrowRight, FileSearch, ShieldAlert, TableProperties, UploadCloud, Users, Wrench } from "lucide-react";
 import { CaseStatusBadge } from "@/components/CaseStatusBadge";
 import { DashboardStats } from "@/components/DashboardStats";
 import { LayoutShell } from "@/components/LayoutShell";
+import { StatusHint, WorkflowSteps } from "@/components/VisualIndicators";
 import { listClaims, listInvoices, listPolicies, listTariffs, listWorkshops } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -13,6 +14,12 @@ export default async function DashboardPage() {
   const recent = cases.slice(0, 5);
   const authorizedTariffs = tariffs.filter((item) => item.authorized).length;
   const openClaims = claims.filter((item) => item.status !== "closed").length;
+  const flowSteps = [
+    { label: "Polizas", status: policies.length ? "done" : "current" },
+    { label: "Siniestros", status: claims.length ? "done" : "pending" },
+    { label: "Convenios", status: workshops.length ? "done" : "pending" },
+    { label: "Auditorias", status: cases.length ? "done" : "current" },
+  ] as const;
 
   return (
     <LayoutShell>
@@ -34,6 +41,10 @@ export default async function DashboardPage() {
         <ControlCard icon={<TableProperties className="size-5" />} title="5. Tarifario" value={`${tariffs.length} conceptos`} detail={`${authorizedTariffs} conceptos autorizados para precios y horas.`} href="/tariffs" />
         <ControlCard icon={<FileSearch className="size-5" />} title="6. Revision" value={`${cases.length} casos`} detail="Solo observadas o rechazadas pasan a auditor humano." href="/cases" />
       </section>
+
+      <div className="mb-6">
+        <WorkflowSteps steps={flowSteps.map((step) => ({ label: step.label, status: step.status }))} />
+      </div>
 
       <DashboardStats cases={cases} />
 
@@ -79,20 +90,9 @@ export default async function DashboardPage() {
         </section>
 
         <section className="min-w-0 space-y-4">
-          <div className="rounded border border-line bg-white p-5 shadow-subtle">
-            <div className="mb-3 flex items-center gap-2 text-rejected">
-              <AlertTriangle className="size-5" />
-              <p className="text-sm font-semibold">Alertas criticas</p>
-            </div>
-            <p className="text-4xl font-semibold text-rejected">{criticalAlerts}</p>
-          </div>
-          <div className="rounded border border-line bg-white p-5 shadow-subtle">
-            <div className="mb-3 flex items-center gap-2 text-approved">
-              <CheckCircle2 className="size-5" />
-              <p className="text-sm font-semibold">Base lista para auditar</p>
-            </div>
-            <p className="text-4xl font-semibold text-approved">{policies.length + claims.length + workshops.length + tariffs.length}</p>
-          </div>
+          <StatusHint tone={criticalAlerts ? "danger" : "success"} title="Alertas criticas" value={`${criticalAlerts} registradas`} />
+          <StatusHint tone={policies.length && claims.length && workshops.length && tariffs.length ? "success" : "warning"} title="Base operativa" value={`${policies.length + claims.length + workshops.length + tariffs.length} registros listos`} />
+          <StatusHint tone={openClaims ? "info" : "warning"} title="Siniestros activos" value={`${openClaims} abiertos o en revision`} />
         </section>
       </div>
     </LayoutShell>

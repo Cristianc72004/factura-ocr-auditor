@@ -28,6 +28,11 @@ export function getClaimByNumber(claims: Awaited<ReturnType<typeof listClaims>>,
   return claims.find((claim) => claim.claimNumber === claimNumber) ?? null;
 }
 
+export function getClaimByInvoiceNumber(claims: Awaited<ReturnType<typeof listClaims>>, invoiceNumber?: string) {
+  if (!invoiceNumber) return null;
+  return claims.find((claim) => claim.invoiceNumber === invoiceNumber) ?? null;
+}
+
 export function getCriticalAlerts(invoices: Awaited<ReturnType<typeof listInvoices>>) {
   return invoices.flatMap((invoice) => invoice.alerts.map((alert) => ({ ...alert, invoice }))).filter((item) => item.severity === "critical");
 }

@@ -30,5 +30,53 @@
     "authorizedWorkshopNames": ["Taller Norte"],
     "estimatedRepairAmount": 360000,
     "status": "under_review"
+  },
+  {
+    "id": "cla_003",
+    "claimNumber": "09881234",
+    "invoiceNumber": "0001-00001236",
+    "policyNumber": "POL-AR-2024-0001",
+    "insurerName": "Seguros del Norte S.A.",
+    "insuredName": "Juan Perez",
+    "vehicle": "Toyota Corolla XEI 2.0 2020",
+    "licensePlate": "AB123CD",
+    "accidentDate": "2024-07-18",
+    "reportedDamage": "Golpe frontal leve con rotura de optica delantera izquierda y rayones en paragolpes",
+    "authorizedServices": ["Optica delantera izquierda", "Paragolpes delantero", "Pintura", "Mano de obra"],
+    "authorizedWorkshopNames": ["DigitFlow Solutions S.A.S."],
+    "estimatedRepairAmount": 285000,
+    "status": "open"
+  },
+  {
+    "id": "cla_004",
+    "claimNumber": "05550123",
+    "invoiceNumber": "0001-00001237",
+    "policyNumber": "POL-AR-2024-0002",
+    "insurerName": "Seguros del Norte S.A.",
+    "insuredName": "Mariana Alvarez",
+    "vehicle": "Ford Ranger XLS 2021",
+    "licensePlate": "AC987ZX",
+    "accidentDate": "2024-08-09",
+    "reportedDamage": "Impacto lateral con dano en guardabarro delantero derecho y necesidad de pintura",
+    "authorizedServices": ["Guardabarro delantero", "Pintura", "Mano de obra"],
+    "authorizedWorkshopNames": ["Taller Norte"],
+    "estimatedRepairAmount": 310000,
+    "status": "open"
+  },
+  {
+    "id": "cla_005",
+    "claimNumber": "04440987",
+    "invoiceNumber": "0001-00001238",
+    "policyNumber": "POL-AR-2024-0001",
+    "insurerName": "Seguros del Norte S.A.",
+    "insuredName": "Juan Perez",
+    "vehicle": "Toyota Corolla XEI 2.0 2020",
+    "licensePlate": "AB123CD",
+    "accidentDate": "2024-09-02",
+    "reportedDamage": "Revision posterior a choque frontal, diagnostico y ajuste de paragolpes",
+    "authorizedServices": ["Diagnostico", "Paragolpes delantero", "Mano de obra"],
+    "authorizedWorkshopNames": ["DigitFlow Solutions S.A.S.", "Taller Norte"],
+    "estimatedRepairAmount": 180000,
+    "status": "under_review"
   }
 ]

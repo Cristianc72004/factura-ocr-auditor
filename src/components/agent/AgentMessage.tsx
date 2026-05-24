@@ -11,7 +11,7 @@ export function AgentMessage({
   suggestions?: string[];
   onPick?: (value: string) => void;
 }) {
-  const parts = role === "agent" ? content.split(/\s(?=[A-D]\.\s)/).filter(Boolean) : [content];
+  const parts = role === "agent" ? content.split(/\n+/).filter(Boolean) : [content];
 
   return (
     <div className={cn("flex", role === "admin" ? "justify-end" : "justify-start")}>
@@ -19,7 +19,7 @@ export function AgentMessage({
         {parts.length > 1 ? (
           <div className="space-y-2">
             {parts.map((part) => (
-              <p key={part}>{part}</p>
+              <p key={part} className={part.match(/^\d+\./) ? "pl-1" : undefined}>{part}</p>
             ))}
           </div>
         ) : (
