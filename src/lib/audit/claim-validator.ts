@@ -20,9 +20,9 @@ export function validateClaim(
     return [
       {
         id: uid("alert"),
-        severity: "high",
+        severity: "medium",
         type: "missing_claim",
-        message: `El siniestro ${invoice.claimNumber || "sin número"} no existe en la base de siniestros.`,
+        message: `El siniestro ${invoice.claimNumber || "sin numero"} debe ser registrado por auditoria con la informacion de factura y cliente.`,
         field: "claimNumber",
         actualValue: invoice.claimNumber,
       },
@@ -33,12 +33,24 @@ export function validateClaim(
   const policy = policies.find((item) => item.policyNumber === claim.policyNumber);
   const workshop = workshops.find((item) => normalizeText(item.workshopName) === normalizeText(invoice.workshopName));
 
+  if (claim.invoiceNumber && normalizeText(claim.invoiceNumber) !== normalizeText(invoice.invoiceNumber)) {
+    alerts.push({
+      id: uid("alert"),
+      severity: "high",
+      type: "claim_invoice_mismatch",
+      message: "El numero de factura indicado en el reporte del siniestro no coincide con la factura del taller.",
+      field: "invoiceNumber",
+      expectedValue: claim.invoiceNumber,
+      actualValue: invoice.invoiceNumber,
+    });
+  }
+
   if (!policy) {
     alerts.push({
       id: uid("alert"),
       severity: "high",
       type: "missing_policy",
-      message: `No se encontró la póliza ${claim.policyNumber} asociada al siniestro.`,
+      message: `No se encontro la poliza ${claim.policyNumber} asociada al siniestro.`,
       field: "policyNumber",
       actualValue: claim.policyNumber,
     });
@@ -48,7 +60,7 @@ export function validateClaim(
         id: uid("alert"),
         severity: "critical",
         type: "inactive_policy",
-        message: "La póliza del cliente no está activa.",
+        message: "La poliza del cliente no esta activa.",
         field: "policyStatus",
         expectedValue: "active",
         actualValue: policy.status,
@@ -59,7 +71,7 @@ export function validateClaim(
         id: uid("alert"),
         severity: "high",
         type: "insured_mismatch",
-        message: "El asegurado de la factura no coincide con el titular de la póliza.",
+        message: "El asegurado de la factura no coincide con el titular de la poliza.",
         field: "insuredName",
         expectedValue: policy.clientName,
         actualValue: invoice.insuredName,
@@ -70,7 +82,7 @@ export function validateClaim(
         id: uid("alert"),
         severity: "high",
         type: "policy_limit_exceeded",
-        message: "El total facturado supera el límite de reparación cubierto por la póliza.",
+        message: "El total facturado supera el limite de reparacion cubierto por la poliza.",
         field: "total",
         expectedValue: String(policy.maxRepairAmount),
         actualValue: String(invoice.total),
@@ -82,7 +94,7 @@ export function validateClaim(
           id: uid("alert"),
           severity: "medium",
           type: "policy_coverage",
-          message: `El ítem ${item.description} no está cubierto claramente por la póliza.`,
+          message: `El item ${item.description} no esta cubierto claramente por la poliza.`,
           field: "description",
           actualValue: item.description,
         });
@@ -105,7 +117,7 @@ export function validateClaim(
         id: uid("alert"),
         severity: "critical",
         type: "inactive_workshop_agreement",
-        message: "El convenio del taller no está activo.",
+        message: "El convenio del taller no esta activo.",
         field: "workshopStatus",
         expectedValue: "active",
         actualValue: workshop.status,
@@ -116,7 +128,7 @@ export function validateClaim(
         id: uid("alert"),
         severity: "high",
         type: "workshop_limit_exceeded",
-        message: "El total facturado supera el monto máximo del convenio del taller.",
+        message: "El total facturado supera el monto maximo del convenio del taller.",
         field: "total",
         expectedValue: String(workshop.maxInvoiceAmount),
         actualValue: String(invoice.total),
@@ -128,7 +140,7 @@ export function validateClaim(
           id: uid("alert"),
           severity: "medium",
           type: "workshop_category_not_allowed",
-          message: `El convenio del taller no permite cobrar la categoría ${item.category}.`,
+          message: `El convenio del taller no permite cobrar la categoria ${item.category}.`,
           field: "category",
           actualValue: item.category,
         });
@@ -152,7 +164,7 @@ export function validateClaim(
       id: uid("alert"),
       severity: "high",
       type: "vehicle_mismatch",
-      message: "El vehículo de la factura no coincide con el siniestro reportado.",
+      message: "El vehiculo de la factura no coincide con el siniestro reportado.",
       field: "vehicle",
       expectedValue: claim.vehicle,
       actualValue: invoice.vehicle,
@@ -174,7 +186,7 @@ export function validateClaim(
       id: uid("alert"),
       severity: "high",
       type: "workshop_not_allowed",
-      message: "El taller no está autorizado para este siniestro.",
+      message: "El taller no esta autorizado para este siniestro.",
       field: "workshopName",
       expectedValue: claim.authorizedWorkshopNames.join(", "),
       actualValue: invoice.workshopName,

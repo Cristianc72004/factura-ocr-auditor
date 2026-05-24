@@ -3,10 +3,10 @@ import { createWorker } from "tesseract.js";
 import mammoth from "mammoth";
 import { PDFParse } from "pdf-parse";
 
-export async function runImageOcr(filePath: string) {
+export async function runImageOcr(input: string | Buffer) {
   const worker = await createWorker("spa+eng");
   try {
-    const result = await worker.recognize(filePath);
+    const result = await worker.recognize(input as never);
     return result.data.text;
   } finally {
     await worker.terminate();
@@ -23,6 +23,10 @@ export function getPdfFallbackText(fileName: string) {
 
 export async function extractPdfText(filePath: string) {
   const data = await readFile(filePath);
+  return extractPdfTextFromBytes(data);
+}
+
+export async function extractPdfTextFromBytes(data: Buffer) {
   const parser = new PDFParse({ data });
   try {
     const result = await parser.getText();
@@ -34,5 +38,10 @@ export async function extractPdfText(filePath: string) {
 
 export async function extractDocxText(filePath: string) {
   const result = await mammoth.extractRawText({ path: filePath });
+  return result.value;
+}
+
+export async function extractDocxTextFromBytes(data: Buffer) {
+  const result = await mammoth.extractRawText({ buffer: data });
   return result.value;
 }

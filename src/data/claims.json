@@ -2,6 +2,7 @@
   {
     "id": "cla_001",
     "claimNumber": "01234567",
+    "invoiceNumber": "0001-00001234",
     "policyNumber": "POL-AR-2024-0001",
     "insurerName": "Seguros del Norte S.A.",
     "insuredName": "Juan Perez",
@@ -17,6 +18,7 @@
   {
     "id": "cla_002",
     "claimNumber": "07654321",
+    "invoiceNumber": "0001-00001235",
     "policyNumber": "POL-AR-2024-0002",
     "insurerName": "Seguros del Norte S.A.",
     "insuredName": "Mariana Alvarez",

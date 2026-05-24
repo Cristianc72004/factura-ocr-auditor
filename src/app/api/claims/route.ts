@@ -12,6 +12,7 @@ export async function POST(request: Request) {
   const claim: Claim = {
     id: body.id || uid("claim"),
     claimNumber: body.claimNumber || "",
+    invoiceNumber: body.invoiceNumber || "",
     policyNumber: body.policyNumber || "",
     insurerName: body.insurerName || "Seguros del Norte S.A.",
     insuredName: body.insuredName || "",

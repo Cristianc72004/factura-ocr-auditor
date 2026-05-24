@@ -3,15 +3,16 @@ import { AlertCard } from "@/components/AlertCard";
 import { CaseStatusBadge } from "@/components/CaseStatusBadge";
 import { InvoiceItemsTable } from "@/components/InvoiceItemsTable";
 import { LayoutShell } from "@/components/LayoutShell";
-import { getInvoice, listClaims } from "@/lib/db";
+import { getInvoice, listClaims, listPolicies } from "@/lib/db";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { ClaimFromInvoiceForm } from "./claim-from-invoice-form";
 import { ReviewForm } from "./review-form";
 
 export default async function CaseDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const invoice = await getInvoice(id);
   if (!invoice) notFound();
-  const claims = await listClaims();
+  const [claims, policies] = await Promise.all([listClaims(), listPolicies()]);
   const claim = claims.find((item) => item.claimNumber === invoice.claimNumber);
 
   return (
@@ -40,16 +41,19 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
               <Info label="Total" value={formatCurrency(invoice.total)} />
             </div>
           </section>
-          {claim && (
+          {claim ? (
             <section className="rounded border border-line bg-white p-5 shadow-subtle">
               <h2 className="mb-4 font-semibold text-ink">Datos del siniestro</h2>
               <div className="grid gap-3 md:grid-cols-2">
                 <Info label="Daño reportado" value={claim.reportedDamage} />
+                <Info label="Factura informada" value={claim.invoiceNumber || "Sin dato"} />
                 <Info label="Servicios autorizados" value={claim.authorizedServices.join(", ")} />
                 <Info label="Talleres autorizados" value={claim.authorizedWorkshopNames.join(", ")} />
                 <Info label="Estado" value={claim.status} />
               </div>
             </section>
+          ) : (
+            <ClaimFromInvoiceForm invoice={invoice} policies={policies} />
           )}
           <section>
             <h2 className="mb-3 font-semibold text-ink">Ítems facturados</h2>

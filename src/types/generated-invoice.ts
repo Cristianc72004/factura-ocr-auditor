@@ -10,7 +10,9 @@ export type GeneratedInvoiceRequest = {
 export type GeneratedInvoiceFile = {
   fileName: string;
   downloadUrl: string;
-  filePath: string;
+  filePath?: string;
+  storageKey?: string;
+  url?: string;
   invoiceNumber: string;
   claimNumber: string;
   total: number;

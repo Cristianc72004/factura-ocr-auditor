@@ -1,7 +1,7 @@
-import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
-import { ALLOWED_MIME_TYPES, MAX_UPLOAD_BYTES } from "@/lib/constants";
+import { ALLOWED_MIME_TYPES, MAX_UPLOAD_BYTES, MAX_UPLOAD_MB } from "@/lib/constants";
+import { writeStoredFile } from "@/lib/storage";
 import { uid } from "@/lib/utils";
 
 function safeFileName(name: string) {
@@ -15,27 +15,30 @@ export async function POST(request: Request) {
   const file = formData.get("file");
 
   if (!(file instanceof File)) {
-    return NextResponse.json({ error: "No se recibió archivo." }, { status: 400 });
+    return NextResponse.json({ error: "No se recibio archivo." }, { status: 400 });
   }
   if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-    return NextResponse.json({ error: "Tipo de archivo no permitido. Use PDF, PNG, JPG o JPEG." }, { status: 400 });
+    return NextResponse.json({ error: "Tipo de archivo no permitido. Use PDF, PNG, JPG, JPEG o DOCX." }, { status: 400 });
   }
   if (file.size > MAX_UPLOAD_BYTES) {
-    return NextResponse.json({ error: "El archivo supera el tamaño máximo de 8 MB." }, { status: 400 });
+    return NextResponse.json({ error: `El archivo supera el tamano maximo de ${MAX_UPLOAD_MB} MB.` }, { status: 400 });
   }
 
-  const uploadDir = path.join(process.cwd(), "uploads", "invoices");
-  await mkdir(uploadDir, { recursive: true });
   const fileName = safeFileName(file.name);
-  const filePath = path.join(uploadDir, fileName);
   const bytes = Buffer.from(await file.arrayBuffer());
-  await writeFile(filePath, bytes);
+  const stored = await writeStoredFile({
+    storageKey: `invoices/${fileName}`,
+    bytes,
+    contentType: file.type,
+  });
 
   return NextResponse.json({
     fileName,
     originalName: file.name,
     mimeType: file.type,
     size: file.size,
-    filePath,
+    filePath: stored.filePath,
+    storageKey: stored.storageKey,
+    url: stored.url,
   });
 }

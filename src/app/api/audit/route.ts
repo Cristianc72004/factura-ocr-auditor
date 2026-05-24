@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auditInvoice } from "@/lib/audit/audit-engine";
-import { listClaims, listInvoices, listPolicies, listTariffs, listWorkshops, saveInvoice } from "@/lib/db";
+import { getInvoice, listClaims, listInvoices, listPolicies, listTariffs, listWorkshops, saveInvoice } from "@/lib/db";
 import { recognizeInvoiceDocument } from "@/lib/ocr/invoice-recognizer";
 import { uid } from "@/lib/utils";
 import type { ExtractedInvoice, InvoiceRecord } from "@/types/invoice";
@@ -10,6 +10,7 @@ export async function POST(request: Request) {
     invoice: ExtractedInvoice;
     rawOcrText?: string;
     fileName?: string;
+    invoiceId?: string;
     persist?: boolean;
   };
 
@@ -32,16 +33,17 @@ export async function POST(request: Request) {
   });
 
   if (body.persist ?? true) {
+    const current = body.invoiceId ? await getInvoice(body.invoiceId) : null;
     const record: InvoiceRecord = {
       ...body.invoice,
-      id: uid("inv"),
+      id: current?.id || uid("inv"),
       status: report.status,
       riskScore: report.riskScore,
-      rawOcrText: body.rawOcrText ?? "",
-      createdAt: new Date().toISOString(),
+      rawOcrText: body.rawOcrText ?? current?.rawOcrText ?? "",
+      createdAt: current?.createdAt ?? new Date().toISOString(),
       alerts: report.alerts,
-      reviews: [],
-      fileName: body.fileName,
+      reviews: current?.reviews ?? [],
+      fileName: body.fileName ?? current?.fileName,
     };
     await saveInvoice(record);
     return NextResponse.json({ report, case: record, recognition });

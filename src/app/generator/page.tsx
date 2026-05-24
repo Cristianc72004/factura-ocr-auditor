@@ -57,7 +57,13 @@ export default function GeneratorPage() {
       const response = await fetch("/api/ocr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filePath: file.filePath, fileName: file.fileName, mimeType: "application/pdf" }),
+        body: JSON.stringify({
+          filePath: file.filePath,
+          storageKey: file.storageKey,
+          url: file.url,
+          fileName: file.fileName,
+          mimeType: "application/pdf",
+        }),
       });
       const data = await response.json();
       setTests((current) => [
@@ -76,9 +82,6 @@ export default function GeneratorPage() {
       <div className="mb-6">
         <p className="text-sm font-semibold uppercase tracking-wide text-steel">Datos sintéticos</p>
         <h1 className="mt-1 text-3xl font-semibold text-ink">Generador de facturas DigitFlow</h1>
-        <p className="mt-2 max-w-3xl text-sm text-steel">
-          Crea PDFs simples del mismo modelo aceptado por el reconocimiento. Sirven para probar el detector, cargar muestras y variar datos sin editar una factura a mano.
-        </p>
       </div>
 
       {error && <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-rejected">{error}</div>}
@@ -102,7 +105,7 @@ export default function GeneratorPage() {
             <input className="w-full rounded border border-line px-3 py-2 focus-ring" value={workshopName} onChange={(event) => setWorkshopName(event.target.value)} />
           </label>
           <label className="text-sm">
-            <span className="mb-1 block font-medium text-steel">Cliente</span>
+            <span className="mb-1 block font-medium text-steel">Aseguradora cliente</span>
             <input className="w-full rounded border border-line px-3 py-2 focus-ring" value={customerName} onChange={(event) => setCustomerName(event.target.value)} />
           </label>
         </div>

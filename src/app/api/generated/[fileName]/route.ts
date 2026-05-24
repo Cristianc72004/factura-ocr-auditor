@@ -1,6 +1,6 @@
-import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
+import { readStoredFile } from "@/lib/storage";
 
 export async function GET(_: Request, { params }: { params: Promise<{ fileName: string }> }) {
   const { fileName } = await params;
@@ -9,9 +9,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ fileName: 
     return NextResponse.json({ error: "Archivo no permitido." }, { status: 400 });
   }
 
-  const filePath = path.join(process.cwd(), "uploads", "generated", safeName);
   try {
-    const bytes = await readFile(filePath);
+    const bytes = await readStoredFile({ storageKey: `generated/${safeName}` });
     return new NextResponse(bytes, {
       headers: {
         "Content-Type": "application/pdf",

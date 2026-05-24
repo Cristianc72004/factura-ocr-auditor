@@ -1,8 +1,7 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import path from "node:path";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { GeneratedInvoiceFile, GeneratedInvoiceRequest } from "@/types/generated-invoice";
 import { demoClaims, demoPolicies, demoWorkshops } from "./mock-data";
+import { isBlobStorageEnabled, writeStoredFile } from "./storage";
 import { uid } from "./utils";
 
 type GeneratedLine = {
@@ -57,6 +56,11 @@ function lineTotal(line: GeneratedLine, index: number) {
   return Number((gross * (1 - line.discount / 100)).toFixed(2));
 }
 
+function fiscalUuid(index: number) {
+  const seed = `${Date.now()}${index}${Math.random().toString(16).slice(2)}`.padEnd(32, "0").slice(0, 32);
+  return `${seed.slice(0, 8)}-${seed.slice(8, 12)}-${seed.slice(12, 16)}-${seed.slice(16, 20)}-${seed.slice(20, 32)}`;
+}
+
 function drawRow(
   page: import("pdf-lib").PDFPage,
   y: number,
@@ -66,13 +70,13 @@ function drawRow(
   isHeader = false,
   fill = false,
 ) {
-  const xs = [42, 72, 128, 320, 360, 405, 475, 535];
+  const xs = [42, 68, 124, 322, 362, 402, 468, 512];
   if (isHeader) {
-    page.drawRectangle({ x: 38, y: y - 5, width: 520, height: 18, color: rgb(0.07, 0.14, 0.28) });
+    page.drawRectangle({ x: 38, y: y - 5, width: 500, height: 18, color: rgb(0.07, 0.14, 0.28) });
   } else if (fill) {
-    page.drawRectangle({ x: 38, y: y - 5, width: 520, height: 18, color: rgb(0.96, 0.98, 1) });
+    page.drawRectangle({ x: 38, y: y - 5, width: 500, height: 18, color: rgb(0.96, 0.98, 1) });
   }
-  page.drawLine({ start: { x: 38, y: y - 7 }, end: { x: 558, y: y - 7 }, thickness: 0.4, color: rgb(0.78, 0.82, 0.88) });
+  page.drawLine({ start: { x: 38, y: y - 7 }, end: { x: 538, y: y - 7 }, thickness: 0.4, color: rgb(0.78, 0.82, 0.88) });
   cells.forEach((cell, index) => {
     page.drawText(cell, { x: xs[index], y, size, font, color: isHeader ? rgb(1, 1, 1) : rgb(0.08, 0.13, 0.24) });
   });
@@ -115,7 +119,7 @@ async function createPdf(params: {
   const subtotal = Number(lines.reduce((total, line) => total + lineTotal(line, params.index), 0).toFixed(2));
   const tax = Number((subtotal * 0.21).toFixed(2));
   const total = Number((subtotal + tax).toFixed(2));
-  const uuid = `${uid("pdf")}-digitflow-${params.index}`.slice(0, 36);
+  const uuid = fiscalUuid(params.index);
 
   page.drawRectangle({ x: 0, y: 0, width: 595, height: 842, color: rgb(0.97, 0.98, 1) });
   drawPanel(page, 28, 714, 330, 96);
@@ -159,7 +163,7 @@ async function createPdf(params: {
       [
         String(lineIndex + 1),
         line.code,
-        line.description.slice(0, 34),
+        line.description.slice(0, 32),
         money(line.quantity),
         line.unit,
         money(line.unitPrice),
@@ -202,8 +206,6 @@ export async function generateDigitFlowInvoices(request: GeneratedInvoiceRequest
   const count = Math.min(Math.max(Number(request.count || 1), 1), 25);
   const baseInvoiceNumber = Number(request.baseInvoiceNumber || 1234);
   const baseClaimNumber = request.baseClaimNumber || "01234567";
-  const outputDir = path.join(process.cwd(), "uploads", "generated");
-  await mkdir(outputDir, { recursive: true });
 
   const files: GeneratedInvoiceFile[] = [];
   for (let index = 0; index < count; index += 1) {
@@ -211,12 +213,17 @@ export async function generateDigitFlowInvoices(request: GeneratedInvoiceRequest
     const generatedClaimNumber = claimNumber(baseClaimNumber, index);
     const pdf = await createPdf({ request, index, invoiceNumber, claimNumber: generatedClaimNumber });
     const fileName = `Factura_DigitFlow_${invoiceNumber.replace("-", "_")}_${uid("gen")}.pdf`;
-    const filePath = path.join(outputDir, fileName);
-    await writeFile(filePath, pdf.bytes);
+    const stored = await writeStoredFile({
+      storageKey: `generated/${fileName}`,
+      bytes: pdf.bytes,
+      contentType: "application/pdf",
+    });
     files.push({
       fileName,
-      filePath,
-      downloadUrl: `/api/generated/${fileName}`,
+      filePath: stored.filePath,
+      storageKey: stored.storageKey,
+      url: stored.url,
+      downloadUrl: isBlobStorageEnabled() && stored.url ? stored.url : `/api/generated/${fileName}`,
       invoiceNumber,
       claimNumber: generatedClaimNumber,
       total: pdf.total,

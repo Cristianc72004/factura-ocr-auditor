@@ -1,6 +1,7 @@
 export type Claim = {
   id: string;
   claimNumber: string;
+  invoiceNumber: string;
   policyNumber: string;
   insurerName: string;
   insuredName: string;

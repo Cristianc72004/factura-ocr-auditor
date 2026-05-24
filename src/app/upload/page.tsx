@@ -31,7 +31,9 @@ type UploadedFile = {
   originalName: string;
   mimeType: string;
   size: number;
-  filePath: string;
+  filePath?: string;
+  storageKey?: string;
+  url?: string;
 };
 
 export default function UploadPage() {

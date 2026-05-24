@@ -20,9 +20,6 @@ export default async function DashboardPage() {
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-steel">Panel administrativo</p>
           <h1 className="mt-1 text-3xl font-semibold text-ink">Validacion de facturas por poliza, siniestro y convenio</h1>
-          <p className="mt-2 max-w-3xl text-sm text-steel">
-            El flujo real inicia con cliente y poliza, continua con siniestro reportado, taller conveniado y tarifario acordado. La factura del taller se valida contra todas esas bases.
-          </p>
         </div>
         <Link className="focus-ring rounded bg-navy px-4 py-2 text-sm font-semibold text-white" href="/upload">
           Auditar factura
@@ -31,10 +28,10 @@ export default async function DashboardPage() {
 
       <section className="mb-6 grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-4">
         <ControlCard icon={<Users className="size-5" />} title="1. Cliente y poliza" value={`${policies.length} polizas`} detail="Titular, vehiculo, placa, cobertura, deducible y limite." href="/clients" />
-        <ControlCard icon={<ShieldAlert className="size-5" />} title="2. Siniestro" value={`${claims.length} reportes`} detail={`${openClaims} abiertos o en revision con alcance autorizado.`} href="/claims" />
-        <ControlCard icon={<Wrench className="size-5" />} title="3. Taller" value={`${workshops.length} convenios`} detail="Taller habilitado, hora de mano de obra y categorias." href="/workshops" />
-        <ControlCard icon={<TableProperties className="size-5" />} title="4. Tarifario" value={`${tariffs.length} conceptos`} detail={`${authorizedTariffs} conceptos autorizados para precios y horas.`} href="/tariffs" />
-        <ControlCard icon={<UploadCloud className="size-5" />} title="5. Factura" value="OCR + reglas" detail="Documento generado por taller y validado contra las bases." href="/upload" />
+        <ControlCard icon={<ShieldAlert className="size-5" />} title="2. Reporte del cliente" value={`${claims.length} reportes`} detail={`${openClaims} abiertos o en revision con factura informada.`} href="/claims" />
+        <ControlCard icon={<UploadCloud className="size-5" />} title="3. Factura del taller" value="OCR + datos" detail="Documento del taller para contrastar contra el reporte." href="/upload" />
+        <ControlCard icon={<Wrench className="size-5" />} title="4. Taller" value={`${workshops.length} convenios`} detail="Taller habilitado, hora de mano de obra y categorias." href="/workshops" />
+        <ControlCard icon={<TableProperties className="size-5" />} title="5. Tarifario" value={`${tariffs.length} conceptos`} detail={`${authorizedTariffs} conceptos autorizados para precios y horas.`} href="/tariffs" />
         <ControlCard icon={<FileSearch className="size-5" />} title="6. Revision" value={`${cases.length} casos`} detail="Solo observadas o rechazadas pasan a auditor humano." href="/cases" />
       </section>
 
@@ -72,7 +69,7 @@ export default async function DashboardPage() {
                 {!recent.length && (
                   <tr>
                     <td className="px-5 py-8 text-center text-steel" colSpan={6}>
-                      No hay facturas auditadas. Primero revisa clientes, polizas, siniestros, talleres y tarifario.
+                      No hay facturas auditadas.
                     </td>
                   </tr>
                 )}
@@ -88,14 +85,13 @@ export default async function DashboardPage() {
               <p className="text-sm font-semibold">Alertas criticas</p>
             </div>
             <p className="text-4xl font-semibold text-rejected">{criticalAlerts}</p>
-            <p className="mt-3 text-sm text-steel">Polizas inactivas, talleres sin convenio, duplicados o excesos graves bloquean el pago preventivamente.</p>
           </div>
           <div className="rounded border border-line bg-white p-5 shadow-subtle">
             <div className="mb-3 flex items-center gap-2 text-approved">
               <CheckCircle2 className="size-5" />
               <p className="text-sm font-semibold">Base lista para auditar</p>
             </div>
-            <p className="text-sm text-steel">Clientes, polizas, siniestros, talleres y tarifario estan disponibles como base maestra. Las facturas nuevas se comparan contra esos registros.</p>
+            <p className="text-4xl font-semibold text-approved">{policies.length + claims.length + workshops.length + tariffs.length}</p>
           </div>
         </section>
       </div>

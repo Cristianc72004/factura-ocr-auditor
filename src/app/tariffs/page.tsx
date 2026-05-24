@@ -40,12 +40,12 @@ export default function TariffsPage() {
       <section className="mb-6 rounded border border-line bg-white p-4 shadow-subtle">
         <h2 className="mb-3 font-semibold text-ink">{draft.id ? "Editar concepto" : "Nuevo concepto"}</h2>
         <div className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
-          <Input label="Codigo" value={draft.code} onChange={(v) => setDraft({ ...draft, code: v })} />
-          <Input label="Descripcion" value={draft.description} onChange={(v) => setDraft({ ...draft, description: v })} />
-          <Input label="Categoria" value={draft.category} onChange={(v) => setDraft({ ...draft, category: v })} />
-          <Input label="Precio max." type="number" value={draft.maxUnitPrice} onChange={(v) => setDraft({ ...draft, maxUnitPrice: Number(v) })} />
-          <Input label="Horas max." type="number" value={draft.maxLaborHours} onChange={(v) => setDraft({ ...draft, maxLaborHours: Number(v) })} />
-          <label className="flex items-end gap-2 rounded border border-line px-3 py-2 text-sm"><input type="checkbox" checked={Boolean(draft.authorized)} onChange={(e) => setDraft({ ...draft, authorized: e.target.checked })} /> Autorizado</label>
+          <Input label="Codigo tarifario" placeholder="Ej: RV-TOY-0456" value={draft.code} onChange={(v) => setDraft({ ...draft, code: v })} />
+          <Input label="Descripcion del item" placeholder="Ej: Paragolpes delantero" value={draft.description} onChange={(v) => setDraft({ ...draft, description: v })} />
+          <Input label="Categoria" placeholder="Ej: repuesto" value={draft.category} onChange={(v) => setDraft({ ...draft, category: v })} />
+          <Input label="Precio maximo" type="number" placeholder="Ej: 120000" value={draft.maxUnitPrice} onChange={(v) => setDraft({ ...draft, maxUnitPrice: Number(v) })} />
+          <Input label="Horas maximas" type="number" placeholder="Ej: 2.5" value={draft.maxLaborHours} onChange={(v) => setDraft({ ...draft, maxLaborHours: Number(v) })} />
+          <label className="flex items-center rounded border border-line px-3 py-2 text-sm"><span className="flex items-center gap-2"><input type="checkbox" checked={Boolean(draft.authorized)} onChange={(e) => setDraft({ ...draft, authorized: e.target.checked })} /> Autorizado</span></label>
         </div>
         <div className="mt-4 flex gap-2"><button className="rounded bg-navy px-4 py-2 text-sm font-semibold text-white" onClick={save}>Guardar</button>{draft.id && <button className="rounded border border-line px-4 py-2 text-sm font-semibold text-steel" onClick={() => setDraft(blank)}>Cancelar</button>}</div>
       </section>
@@ -60,10 +60,10 @@ export default function TariffsPage() {
   );
 }
 
-function Input({ label, value, onChange, type = "text" }: { label: string; value: unknown; onChange: (value: string) => void; type?: string }) {
-  return <label className="text-sm"><span className="mb-1 block font-medium text-steel">{label}</span><input className="w-full rounded border border-line px-3 py-2 focus-ring" type={type} value={String(value ?? "")} onChange={(e) => onChange(e.target.value)} /></label>;
+function Input({ label, value, onChange, type = "text", placeholder }: { label: string; value: unknown; onChange: (value: string) => void; type?: string; placeholder?: string }) {
+  return <label className="text-sm"><span className="mb-1 block font-medium text-steel">{label}</span><input className="w-full rounded border border-line px-3 py-2 focus-ring" placeholder={placeholder} type={type} value={String(value ?? "")} onChange={(e) => onChange(e.target.value)} /></label>;
 }
 
 function Actions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
-  return <div className="flex justify-end gap-2"><button className="grid size-9 place-items-center rounded border border-line text-navy" onClick={onEdit}><Edit2 className="size-4" /></button><button className="grid size-9 place-items-center rounded border border-line text-rejected" onClick={onDelete}><Trash2 className="size-4" /></button></div>;
+  return <div className="flex justify-end gap-2"><button title="Editar registro" className="grid size-9 place-items-center rounded border border-line text-navy" onClick={onEdit}><Edit2 className="size-4" /></button><button title="Eliminar registro" className="grid size-9 place-items-center rounded border border-line text-rejected" onClick={onDelete}><Trash2 className="size-4" /></button></div>;
 }
