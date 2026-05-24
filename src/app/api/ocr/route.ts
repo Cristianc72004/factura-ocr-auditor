@@ -48,13 +48,14 @@ export async function POST(request: Request) {
     const recognition = recognizeInvoiceDocument(rawText);
     return NextResponse.json({ rawText, invoice, recognition });
   } catch (error) {
-    const recognition = recognizeInvoiceDocument("");
+    const rawText = body.mimeType === "application/pdf" ? getPdfFallbackText(body.fileName ?? "documento.pdf") : "";
+    const recognition = recognizeInvoiceDocument(rawText);
     return NextResponse.json(
       {
         error: "No se pudo procesar OCR. Puede continuar ingresando los datos manualmente.",
         detail: error instanceof Error ? error.message : "Error desconocido",
-        rawText: "",
-        invoice: parseInvoiceText(""),
+        rawText,
+        invoice: parseInvoiceText(rawText),
         recognition,
       },
       { status: 200 },

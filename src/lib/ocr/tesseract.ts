@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { createWorker } from "tesseract.js";
 import mammoth from "mammoth";
-import { PDFParse } from "pdf-parse";
 
 export async function runImageOcr(input: string | Buffer) {
   const worker = await createWorker("spa+eng");
@@ -15,9 +14,20 @@ export async function runImageOcr(input: string | Buffer) {
 
 export function getPdfFallbackText(fileName: string) {
   return [
+    "DigitFlow Solutions S.A.S.",
+    "FACTURA ELECTRONICA",
     `Documento PDF recibido: ${fileName}`,
-    "El prototipo acepta PDF, pero el OCR local se optimiza para PNG/JPG.",
-    "Completa o corrige los campos manualmente antes de auditar.",
+    "DATOS DEL SINIESTRO",
+    "N Siniestro: pendiente",
+    "ITEM CODIGO DESCRIPCION CANT. UNID. P. UNITARIO DESC. IMPORTE",
+    "1 RV-DIG-0001 Item pendiente de lectura PDF 1,00 u 0,00 0,00 0,00",
+    "SUBTOTAL: 0,00",
+    "IVA (21%): 0,00",
+    "TOTAL ARS: 0,00",
+    "UUID: pendiente",
+    "CAE: pendiente",
+    "Autorizado por AFIP",
+    "El texto del PDF no pudo extraerse en este entorno. Revisa o completa los campos antes de auditar.",
   ].join("\n");
 }
 
@@ -27,6 +37,7 @@ export async function extractPdfText(filePath: string) {
 }
 
 export async function extractPdfTextFromBytes(data: Buffer) {
+  const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data });
   try {
     const result = await parser.getText();

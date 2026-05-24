@@ -3,15 +3,15 @@ import { normalizeText } from "../utils";
 
 const digitflowSignals = [
   { key: "Emisor DigitFlow", terms: ["digitflow solutions", "digitflowsolutions"] },
-  { key: "Factura electrónica", terms: ["factura electronica", "factura electrónica", "factura"] },
+  { key: "Factura electronica", terms: ["factura electronica", "factura"] },
   { key: "Siniestro", terms: ["datos del siniestro", "n siniestro", "n de siniestro", "siniestro"] },
   { key: "CAE o AFIP", terms: ["cae", "afip", "autorizado por afip"] },
   { key: "Total ARS", terms: ["total ars", "iva 21", "subtotal"] },
-  { key: "Tabla de ítems", terms: ["item codigo descripcion", "p unitario", "importe", "mano de obra"] },
+  { key: "Tabla de items", terms: ["item codigo descripcion", "p unitario", "importe", "mano de obra"] },
   { key: "UUID", terms: ["uuid", "identificador del documento", "identificador unico"] },
 ];
 
-const requiredSignals = ["Emisor DigitFlow", "Factura electrónica", "Siniestro", "Total ARS"];
+const requiredSignals = ["Emisor DigitFlow", "Factura electronica", "Siniestro", "Total ARS"];
 
 export function recognizeInvoiceDocument(rawText: string): DocumentRecognition {
   const normalized = normalizeText(rawText);
@@ -32,7 +32,7 @@ export function recognizeInvoiceDocument(rawText: string): DocumentRecognition {
     matchedSignals,
     missingSignals,
     message: isValid
-      ? "Factura válida: modelo DigitFlow reconocido."
-      : "Documento no válido: no corresponde al modelo de factura DigitFlow activado para este prototipo.",
+      ? "Factura valida: modelo DigitFlow reconocido."
+      : "Documento no valido: no corresponde al modelo de factura DigitFlow activado para este prototipo.",
   };
 }

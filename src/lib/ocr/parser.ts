@@ -64,6 +64,27 @@ function cleanExtractedText(value: string) {
     .replace(/\u00e2\u0080\u0093/g, "-");
 }
 
+function normalizeDate(value: string) {
+  const match = value.match(/^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/);
+  if (!match) return value;
+  const [, day, month, year] = match;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function pickBlock(text: string, start: RegExp, end: RegExp[]) {
+  const startMatch = start.exec(text);
+  if (!startMatch) return "";
+  const from = startMatch.index + startMatch[0].length;
+  const rest = text.slice(from);
+  const endIndexes = end.map((pattern) => {
+    pattern.lastIndex = 0;
+    const match = pattern.exec(rest);
+    return match?.index ?? -1;
+  });
+  const validEnd = endIndexes.filter((index) => index >= 0).sort((a, b) => a - b)[0];
+  return cleanExtractedText(rest.slice(0, validEnd ?? undefined));
+}
+
 function normalizeDigitFlowTableText(text: string) {
   return text
     .replace(/\r/g, "")
@@ -147,10 +168,13 @@ function parseDigitFlowItems(text: string): InvoiceItem[] {
 
       return {
         id: uid("item"),
+        code,
         description: cleanExtractedText(description),
         category: guessCategory(description, code),
         quantity,
+        unit,
         unitPrice,
+        discount: parseMoney(match[6]),
         laborHours: unit.toLowerCase() === "h" ? quantity : 0,
         total,
       };
@@ -180,10 +204,13 @@ function parseFallbackItems(text: string): InvoiceItem[] {
       const category = guessCategory(description);
       return {
         id: uid("item"),
+        code: "",
         description,
         category,
         quantity: quantity || 1,
+        unit: "u",
         unitPrice: unitPrice || total,
+        discount: 0,
         laborHours: category === "mano_obra" ? quantity || 1 : 0,
         total,
       };
@@ -201,10 +228,13 @@ function parseItems(text: string): InvoiceItem[] {
     : [
         {
           id: uid("item"),
+          code: "",
           description: "Paragolpes delantero",
           category: "repuesto",
           quantity: 1,
+          unit: "u",
           unitPrice: 0,
+          discount: 0,
           laborHours: 0,
           total: 0,
         },
@@ -223,18 +253,26 @@ export function parseInvoiceText(rawText: string): ExtractedInvoice {
     /\bN\s*Siniestro[:\s-]*([A-Z0-9-]+)/i,
     /siniestro\s*(?:nro|no|#|numero)?[:\s-]*([A-Z0-9-]+)/i,
   ]);
+  const policyNumber = pick(text, [/poliza[:\s-]*([A-Z0-9-]+)/i]);
   const workshopName = pick(
     text,
     [/taller[:\s-]*([^\n\r]+)/i, /proveedor[:\s-]*([^\n\r]+)/i],
     /digitflow solutions/i.test(text) ? "DigitFlow Solutions S.A.S." : "",
   );
+  const workshopTaxId = pick(text, [/(?:nit|cuit)[:\s-]*([0-9-]{8,})/i]);
+  const customerName = pick(text, [/razon social[:\s-]*([^\n\r]+)/i, /cliente[:\s-]*([^\n\r]+)/i]);
+  const customerTaxId = pick(text, [/datos del cliente[\s\S]*?cuit[:\s-]*([0-9-]{8,})/i, /razon social[\s\S]*?cuit[:\s-]*([0-9-]{8,})/i]);
   const insuredName = pick(text, [/asegurado[:\s-]*([^\n\r]+?)(?:\s+poliza:|\s+poliza\s|$)/i, /cliente[:\s-]*([^\n\r]+)/i]);
   const vehicleLine = pick(text, [/veh.?culo[:\s-]*([^\n\r]+)/i, /auto[:\s-]*([^\n\r]+)/i]);
   const plateFromVehicle = vehicleLine.match(/\b([A-Z]{2,3}\d{3}[A-Z]{0,2})\b/i)?.[1] ?? "";
   const vehicle = vehicleLine.replace(/\s*-\s*[A-Z]{2,3}\d{3}[A-Z]{0,2}\s*$/i, "").trim();
   const licensePlate = pick(text, [/(?:patente|placa|dominio)[:\s-]*([A-Z]{2,3}\s?\d{3}\s?[A-Z]{0,2})/i], plateFromVehicle);
+  const currency = pick(text, [/moneda[:\s-]*([^\n\r]+)/i]);
+  const cae = pick(text, [/cae[:\s-]*([A-Z0-9-]+)/i]);
   const uuid = pick(text, [/uuid[:\s-]*([a-z0-9-]{12,})/i, /\b([a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12})\b/i]);
-  const date = pick(text, [/emision[:\s-]*(\d{2}[/-]\d{2}[/-]\d{4})/i, /fecha\s*(?:de\s*emisi.n)?[:\s-]*(\d{2}[/-]\d{2}[/-]\d{4})/i, /\b(\d{4}-\d{2}-\d{2})\b/]);
+  const date = normalizeDate(pick(text, [/emision[:\s-]*(\d{1,2}[/-]\d{1,2}[/-]\d{4})/i, /fecha\s*(?:de\s*emisi.n)?[:\s-]*(\d{1,2}[/-]\d{1,2}[/-]\d{4})/i, /\b(\d{4}-\d{2}-\d{2})\b/]));
+  const fiscalUrl = pick(text, [/verifique en[:\s-]*(https?:\/\/[^\s]+)/i, /(https?:\/\/[^\s]+)/i]);
+  const observations = pickBlock(text, /observaciones\s*/i, [/subtotal[:\s$]/i, /iva\s*\(/i, /total\s*ars[:\s$]/i]);
   const subtotal = parseMoney(pick(text, [/subtotal[:\s$]*([\d.,]+)/i]));
   const tax = parseMoney(pick(text, [/(?:iva|impuesto)(?:\s*\([^)]*\))?[:\s$]*([\d.,]+)/i]));
   const total = parseMoney(pick(text, [/total\s*ars[:\s$]*([\d.,]+)/i, /total[:\s$]*([\d.,]+)/i]));
@@ -243,12 +281,20 @@ export function parseInvoiceText(rawText: string): ExtractedInvoice {
   return {
     invoiceNumber,
     claimNumber,
+    policyNumber,
     workshopName,
+    workshopTaxId,
+    customerName,
+    customerTaxId,
     insuredName,
     vehicle,
     licensePlate: licensePlate.replace(/\s+/g, ""),
     date,
+    currency,
+    cae,
     uuid,
+    fiscalUrl,
+    observations,
     subtotal,
     tax,
     total,

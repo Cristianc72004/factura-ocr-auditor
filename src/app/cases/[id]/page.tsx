@@ -1,9 +1,11 @@
 import { notFound } from "next/navigation";
 import { AlertCard } from "@/components/AlertCard";
 import { CaseStatusBadge } from "@/components/CaseStatusBadge";
+import { CollapsedTextBlock } from "@/components/CollapsedTextBlock";
 import { InvoiceItemsTable } from "@/components/InvoiceItemsTable";
 import { LayoutShell } from "@/components/LayoutShell";
 import { getInvoice, listClaims, listPolicies } from "@/lib/db";
+import { CLAIM_STATUS_LABELS, labelFromMap } from "@/lib/labels";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { ClaimFromInvoiceForm } from "./claim-from-invoice-form";
 import { ReviewForm } from "./review-form";
@@ -45,11 +47,11 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
             <section className="rounded border border-line bg-white p-5 shadow-subtle">
               <h2 className="mb-4 font-semibold text-ink">Datos del siniestro</h2>
               <div className="grid gap-3 md:grid-cols-2">
-                <Info label="Daño reportado" value={claim.reportedDamage} />
+                <Info label="Daño reportado" value={cleanText(claim.reportedDamage)} />
                 <Info label="Factura informada" value={claim.invoiceNumber || "Sin dato"} />
-                <Info label="Servicios autorizados" value={claim.authorizedServices.join(", ")} />
+                <Info label="Servicios autorizados" value={claim.authorizedServices.map(cleanText).join(", ")} />
                 <Info label="Talleres autorizados" value={claim.authorizedWorkshopNames.join(", ")} />
-                <Info label="Estado" value={claim.status} />
+                <Info label="Estado" value={labelFromMap(CLAIM_STATUS_LABELS, claim.status)} />
               </div>
             </section>
           ) : (
@@ -59,10 +61,7 @@ export default async function CaseDetailPage({ params }: { params: Promise<{ id:
             <h2 className="mb-3 font-semibold text-ink">Ítems facturados</h2>
             <InvoiceItemsTable items={invoice.items} />
           </section>
-          <section className="rounded border border-line bg-white p-5 shadow-subtle">
-            <h2 className="mb-3 font-semibold text-ink">OCR bruto</h2>
-            <pre className="max-h-72 overflow-auto rounded bg-surface p-3 text-sm text-steel whitespace-pre-wrap">{invoice.rawOcrText || "Sin texto OCR registrado."}</pre>
-          </section>
+          <CollapsedTextBlock title="Texto reconocido" text={invoice.rawOcrText} emptyText="Sin texto reconocido registrado." />
         </div>
         <aside className="min-w-0 space-y-6">
           <section className="rounded border border-line bg-white p-5 shadow-subtle">
@@ -100,4 +99,13 @@ function Info({ label, value }: { label: string; value: string }) {
       <p className="mt-1 text-sm font-semibold text-ink">{value}</p>
     </div>
   );
+}
+
+function cleanText(value: string) {
+  return value
+    .replace(/\bdano\b/gi, "daño")
+    .replace(/\boptica\b/gi, "óptica")
+    .replace(/\brevision\b/gi, "revisión")
+    .replace(/\bDiagnostico\b/g, "Diagnóstico")
+    .replace(/\bAlineacion\b/g, "Alineación");
 }

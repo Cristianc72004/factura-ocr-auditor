@@ -34,7 +34,8 @@ export function reason(plan: AgentPlan, context: AgentContext, message: string):
 
   if (plan.intent === "ayuda") {
     return {
-      reply: "Puedes pedirme: ver casos criticos, resumir el estado del dia, priorizar revision, analizar talleres, buscar una factura o explicar por que un caso fue observado.",
+      reply:
+        "A. Si ya tienes factura: entra a Carga, sube el PDF o imagen, revisa el texto OCR y presiona Auditar factura. B. Si aún no tienes siniestro: entra a Siniestros y registra póliza, asegurado, vehículo, taller autorizado y servicios cubiertos. C. Si quieres probar: entra a Generador, crea una factura DigitFlow y luego súbela en Carga. D. Después de auditar: abre Casos para ver alertas, riesgo y recomendación. Ejemplo: Generador -> Carga -> Auditar factura -> Abrir caso.",
       confidence: 0.95,
       sources: ["KnowledgeBase"],
       reasoning: ["ayuda solicitada"],
@@ -201,7 +202,7 @@ export function reason(plan: AgentPlan, context: AgentContext, message: string):
     if (!claim) return { reply: "No encontre ese siniestro. Verifica el numero o busca por factura asociada.", confidence: 0.62, sources: ["Claim"], reasoning: ["siniestro no encontrado"], insights: [] };
     const related = context.invoices.filter((item) => item.claimNumber === claim.claimNumber);
     return {
-      reply: `Siniestro ${claim.claimNumber}: asegurado ${claim.insuredName}, vehiculo ${claim.vehicle} (${claim.licensePlate}). Dano reportado: ${claim.reportedDamage}. Tiene ${related.length} facturas auditadas asociadas.`,
+      reply: `Siniestro ${claim.claimNumber}: asegurado ${claim.insuredName}, vehículo ${claim.vehicle} (${claim.licensePlate}). Daño reportado: ${claim.reportedDamage}. Tiene ${related.length} facturas auditadas asociadas.`,
       confidence: 0.9,
       sources: ["Claim", "Invoice"],
       reasoning: ["siniestro encontrado", "facturas relacionadas"],

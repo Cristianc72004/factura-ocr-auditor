@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { LayoutShell } from "@/components/LayoutShell";
-import { FileUploader } from "@/components/FileUploader";
-import { OcrPreview } from "@/components/OcrPreview";
-import { ExtractedInvoiceForm } from "@/components/ExtractedInvoiceForm";
 import { AuditReport } from "@/components/AuditReport";
+import { ExtractedInvoiceForm } from "@/components/ExtractedInvoiceForm";
+import { FileUploader } from "@/components/FileUploader";
+import { LayoutShell } from "@/components/LayoutShell";
+import { OcrPreview } from "@/components/OcrPreview";
 import type { AuditReport as AuditReportType } from "@/types/audit";
 import type { DocumentRecognition } from "@/types/document";
 import type { ExtractedInvoice } from "@/types/invoice";
@@ -14,12 +14,20 @@ import type { ExtractedInvoice } from "@/types/invoice";
 const emptyInvoice: ExtractedInvoice = {
   invoiceNumber: "",
   claimNumber: "",
+  policyNumber: "",
   workshopName: "",
+  workshopTaxId: "",
+  customerName: "",
+  customerTaxId: "",
   insuredName: "",
   vehicle: "",
   licensePlate: "",
   date: "",
+  currency: "",
+  cae: "",
   uuid: "",
+  fiscalUrl: "",
+  observations: "",
   subtotal: 0,
   tax: 0,
   total: 0,
@@ -35,6 +43,17 @@ type UploadedFile = {
   storageKey?: string;
   url?: string;
 };
+
+async function readJsonResponse(response: Response) {
+  const text = await response.text();
+  if (!text) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error("El servidor devolvió una respuesta inválida.");
+  }
+}
 
 export default function UploadPage() {
   const [busy, setBusy] = useState(false);
@@ -54,7 +73,7 @@ export default function UploadPage() {
       const form = new FormData();
       form.append("file", file);
       const uploadResponse = await fetch("/api/upload", { method: "POST", body: form });
-      const uploadData = await uploadResponse.json();
+      const uploadData = await readJsonResponse(uploadResponse);
       if (!uploadResponse.ok) throw new Error(uploadData.error || "No se pudo subir el archivo.");
       setUploadedFile(uploadData);
 
@@ -63,7 +82,8 @@ export default function UploadPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(uploadData),
       });
-      const ocrData = await ocrResponse.json();
+      const ocrData = await readJsonResponse(ocrResponse);
+      if (!ocrResponse.ok) throw new Error(ocrData.error || "No se pudo procesar el OCR.");
       setRawText(ocrData.rawText || "");
       setInvoice({ ...emptyInvoice, ...ocrData.invoice });
       setRecognition(ocrData.recognition ?? null);
@@ -83,9 +103,12 @@ export default function UploadPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rawText }),
       });
-      const data = await response.json();
+      const data = await readJsonResponse(response);
+      if (!response.ok) throw new Error(data.error || "No se pudo reprocesar el texto.");
       setInvoice({ ...emptyInvoice, ...data.invoice });
       setRecognition(data.recognition ?? null);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Error inesperado.");
     } finally {
       setBusy(false);
     }
@@ -100,7 +123,7 @@ export default function UploadPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ invoice, rawOcrText: rawText, fileName: uploadedFile?.fileName }),
       });
-      const data = await response.json();
+      const data = await readJsonResponse(response);
       if (!response.ok) throw new Error(data.error || "No se pudo auditar.");
       setReport(data.report);
       setRecognition(data.recognition ?? recognition);
@@ -122,9 +145,6 @@ export default function UploadPage() {
       <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(280px,380px)_minmax(0,1fr)]">
         <div className="min-w-0 space-y-4">
           <FileUploader uploadedFile={uploadedFile} busy={busy} onUpload={upload} />
-          <button className="focus-ring w-full rounded border border-line bg-white px-4 py-2 text-sm font-semibold text-navy disabled:opacity-50" disabled={busy || !rawText} onClick={reparse}>
-            Reprocesar texto corregido
-          </button>
           <button className="focus-ring w-full rounded bg-navy px-4 py-3 text-sm font-semibold text-white disabled:opacity-50" disabled={busy || invoice.items.length === 0 || recognition?.isValid === false} onClick={audit}>
             Auditar factura
           </button>
@@ -146,6 +166,9 @@ export default function UploadPage() {
             </div>
           )}
           <OcrPreview rawText={rawText} onChange={setRawText} />
+          <button className="focus-ring w-full rounded border border-line bg-white px-4 py-2 text-sm font-semibold text-navy disabled:opacity-50" disabled={busy || !rawText} onClick={reparse}>
+            Reprocesar texto corregido
+          </button>
           <ExtractedInvoiceForm invoice={invoice} onChange={setInvoice} />
           {report && <AuditReport report={report} />}
         </div>

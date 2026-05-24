@@ -103,13 +103,13 @@ export function ClaimFromInvoiceForm({
       <div className="grid gap-3 md:grid-cols-2">
         <Input label="Siniestro" value={draft.claimNumber} onChange={(value) => setDraft({ ...draft, claimNumber: value })} />
         <Input label="Factura" value={draft.invoiceNumber} onChange={(value) => setDraft({ ...draft, invoiceNumber: value })} />
-        <Input label="Poliza" value={draft.policyNumber} onChange={(value) => setDraft({ ...draft, policyNumber: value })} />
+        <Input label="Póliza" value={draft.policyNumber} onChange={(value) => setDraft({ ...draft, policyNumber: value })} />
         <Input label="Asegurado" value={draft.insuredName} onChange={(value) => setDraft({ ...draft, insuredName: value })} />
-        <Input label="Vehiculo" value={draft.vehicle} onChange={(value) => setDraft({ ...draft, vehicle: value })} />
+        <Input label="Vehículo" value={draft.vehicle} onChange={(value) => setDraft({ ...draft, vehicle: value })} />
         <Input label="Placa" value={draft.licensePlate} onChange={(value) => setDraft({ ...draft, licensePlate: value })} />
         <Input label="Estimado" type="number" value={draft.estimatedRepairAmount} onChange={(value) => setDraft({ ...draft, estimatedRepairAmount: Number(value) })} />
         <label className="text-sm md:col-span-2">
-          <span className="mb-1 block font-medium text-steel">Dano reportado</span>
+          <span className="mb-1 block font-medium text-steel">Daño reportado</span>
           <input className="w-full rounded border border-line px-3 py-2 focus-ring" value={draft.reportedDamage} onChange={(event) => setDraft({ ...draft, reportedDamage: event.target.value })} />
         </label>
         <label className="text-sm md:col-span-2">

@@ -3,7 +3,7 @@ import type { AgentIntent } from "./agent-types";
 export function detectIntent(message: string): AgentIntent {
   const text = message.toLowerCase();
   if (/hola|buenas|saludos/.test(text)) return "saludo";
-  if (/ayuda|puedes hacer|que sabes/.test(text)) return "ayuda";
+  if (/ayuda|puedes hacer|que sabes|como usar|como auditar|paso a paso|explicame.*pagina|flujo completo|ejemplo/.test(text)) return "ayuda";
   if (/estado del dia|resumen general|dashboard|metric|situacion|panorama|base para auditar/.test(text)) return "consulta_dashboard";
   if (/(casos?|facturas?)\s+(criticos?|criticas?)|criticos?|criticas?/.test(text) && /ver|listar|mostrar|cuales|cuantas|alertas?|casos?|facturas?/.test(text)) return "listar_alertas";
   if (/prior|primero|hoy|urgente|auditar luego/.test(text)) return "priorizar_revision";

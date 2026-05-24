@@ -1,4 +1,5 @@
 import { formatCurrency } from "@/lib/utils";
+import { CATEGORY_LABELS, labelFromMap } from "@/lib/labels";
 import type { InvoiceItem } from "@/types/invoice";
 
 export function InvoiceItemsTable({ items }: { items: InvoiceItem[] }) {
@@ -7,10 +8,13 @@ export function InvoiceItemsTable({ items }: { items: InvoiceItem[] }) {
       <table className="w-full min-w-full text-left text-sm">
         <thead className="bg-surface text-xs uppercase text-steel">
           <tr>
+            <th className="px-4 py-3">Código</th>
             <th className="px-4 py-3">Descripción</th>
             <th className="px-4 py-3">Categoría</th>
             <th className="px-4 py-3 text-right">Cant.</th>
+            <th className="px-4 py-3">Unid.</th>
             <th className="px-4 py-3 text-right">Unitario</th>
+            <th className="px-4 py-3 text-right">Desc.</th>
             <th className="px-4 py-3 text-right">Horas</th>
             <th className="px-4 py-3 text-right">Total</th>
           </tr>
@@ -18,10 +22,13 @@ export function InvoiceItemsTable({ items }: { items: InvoiceItem[] }) {
         <tbody className="divide-y divide-line">
           {items.map((item, index) => (
             <tr key={item.id ?? `${item.description}-${index}`}>
+              <td className="px-4 py-3 text-steel">{item.code || "Sin dato"}</td>
               <td className="px-4 py-3 font-medium text-ink">{item.description}</td>
-              <td className="px-4 py-3 text-steel">{item.category}</td>
+              <td className="px-4 py-3 text-steel">{labelFromMap(CATEGORY_LABELS, item.category)}</td>
               <td className="px-4 py-3 text-right text-steel">{item.quantity}</td>
+              <td className="px-4 py-3 text-steel">{item.unit || "u"}</td>
               <td className="px-4 py-3 text-right text-steel">{formatCurrency(item.unitPrice)}</td>
+              <td className="px-4 py-3 text-right text-steel">{item.discount ?? 0}</td>
               <td className="px-4 py-3 text-right text-steel">{item.laborHours}</td>
               <td className="px-4 py-3 text-right font-semibold text-ink">{formatCurrency(item.total)}</td>
             </tr>

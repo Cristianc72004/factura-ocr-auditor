@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ClipboardCheck, FilePlus2, FileSearch, Gauge, ShieldAlert, TableProperties, UploadCloud, Users, Wrench } from "lucide-react";
+import { ClipboardCheck, FilePlus2, FileSearch, Gauge, Home, ShieldAlert, TableProperties, UploadCloud, Users, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const nav = [
+  { href: "/", label: "Inicio", icon: Home },
   { href: "/dashboard", label: "Dashboard", icon: Gauge },
   { href: "/clients", label: "Clientes", icon: Users },
   { href: "/claims", label: "Siniestros", icon: ShieldAlert },

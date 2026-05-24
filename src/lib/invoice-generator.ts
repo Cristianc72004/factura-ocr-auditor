@@ -150,8 +150,8 @@ async function createPdf(params: {
   drawSectionTitle(page, "DATOS DEL SINIESTRO", 36, 610, bold);
   page.drawText(`N Siniestro: ${params.claimNumber}`, { x: 42, y: 592, size: 9, font: regular });
   page.drawText(`Asegurado: ${insuredName}`, { x: 210, y: 592, size: 9, font: regular });
-  page.drawText(`Poliza: ${policy.policyNumber}`, { x: 400, y: 592, size: 9, font: regular });
-  page.drawText(`Vehiculo: ${vehicle.name} - ${vehicle.plate}`, { x: 42, y: 578, size: 9, font: regular });
+  page.drawText(`Póliza: ${policy.policyNumber}`, { x: 400, y: 592, size: 9, font: regular });
+  page.drawText(`Vehículo: ${vehicle.name} - ${vehicle.plate}`, { x: 42, y: 578, size: 9, font: regular });
 
   drawPanel(page, 28, 238, 530, 316);
   drawRow(page, 532, ["ITEM", "CODIGO", "DESCRIPCION", "CANT.", "UNID.", "P. UNITARIO", "DESC.", "IMPORTE"], bold, 7, true);

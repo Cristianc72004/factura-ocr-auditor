@@ -28,7 +28,7 @@ export default async function DashboardPage() {
 
       <section className="mb-6 grid grid-cols-[repeat(auto-fit,minmax(190px,1fr))] gap-4">
         <ControlCard icon={<Users className="size-5" />} title="1. Cliente y poliza" value={`${policies.length} polizas`} detail="Titular, vehiculo, placa, cobertura, deducible y limite." href="/clients" />
-        <ControlCard icon={<ShieldAlert className="size-5" />} title="2. Reporte del cliente" value={`${claims.length} reportes`} detail={`${openClaims} abiertos o en revision con factura informada.`} href="/claims" />
+        <ControlCard icon={<ShieldAlert className="size-5" />} title="2. Reporte del cliente" value={`${claims.length} reportes`} detail={`${openClaims} abiertos o en revisión con factura informada.`} href="/claims" />
         <ControlCard icon={<UploadCloud className="size-5" />} title="3. Factura del taller" value="OCR + datos" detail="Documento del taller para contrastar contra el reporte." href="/upload" />
         <ControlCard icon={<Wrench className="size-5" />} title="4. Taller" value={`${workshops.length} convenios`} detail="Taller habilitado, hora de mano de obra y categorias." href="/workshops" />
         <ControlCard icon={<TableProperties className="size-5" />} title="5. Tarifario" value={`${tariffs.length} conceptos`} detail={`${authorizedTariffs} conceptos autorizados para precios y horas.`} href="/tariffs" />
