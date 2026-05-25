@@ -14,6 +14,7 @@ type OcrRequest = {
   url?: string;
   fileName?: string;
   originalName?: string;
+  fallbackClaimNumber?: string;
   mimeType?: string;
   rawText?: string;
 };
@@ -21,6 +22,23 @@ type OcrRequest = {
 type GeneratedMetadata = {
   rawText?: string;
   invoice?: ExtractedInvoice;
+};
+
+type OcrDiagnostics = {
+  runtime: string;
+  mimeType?: string;
+  fileName?: string;
+  originalName?: string;
+  storageKey?: string;
+  hasUrl: boolean;
+  bytesLength: number;
+  rawTextLength: number;
+  strategy: string;
+  invoiceNumber?: string;
+  claimNumber?: string;
+  itemCount?: number;
+  weakExtraction?: boolean;
+  error?: string;
 };
 
 async function readUploadedBytes(body: OcrRequest) {
@@ -72,11 +90,14 @@ function categoryFromDescription(description: string) {
 
 async function buildInvoiceFromClaim(body: OcrRequest, rawText = ""): Promise<GeneratedMetadata | null> {
   const invoiceNumber = invoiceNumberFromRequest(body, rawText);
-  if (!invoiceNumber) return null;
 
   const [claims, workshops] = await Promise.all([listClaims(), listWorkshops()]);
-  const claim = claims.find((item) => item.invoiceNumber === invoiceNumber);
+  const claim = invoiceNumber
+    ? claims.find((item) => item.invoiceNumber === invoiceNumber)
+    : claims.find((item) => item.claimNumber === body.fallbackClaimNumber);
   if (!claim) return null;
+  const finalInvoiceNumber = invoiceNumber || claim.invoiceNumber;
+  if (!finalInvoiceNumber) return null;
 
   const workshop = workshops.find((item) => claim.authorizedWorkshopNames.includes(item.workshopName)) ?? workshops[0];
   const services = claim.authorizedServices.length ? claim.authorizedServices : ["Diagnostico"];
@@ -104,7 +125,7 @@ async function buildInvoiceFromClaim(body: OcrRequest, rawText = ""): Promise<Ge
   const tax = Number((subtotal * 0.21).toFixed(2));
   const total = Number((subtotal + tax).toFixed(2));
   const invoice: ExtractedInvoice = {
-    invoiceNumber,
+    invoiceNumber: finalInvoiceNumber,
     claimNumber: claim.claimNumber,
     policyNumber: claim.policyNumber,
     workshopName: workshop?.workshopName || claim.authorizedWorkshopNames[0] || "",
@@ -117,7 +138,7 @@ async function buildInvoiceFromClaim(body: OcrRequest, rawText = ""): Promise<Ge
     date: claim.accidentDate,
     currency: "ARS",
     cae: "",
-    uuid: `fallback-${invoiceNumber.replace(/[^0-9]/g, "")}`,
+    uuid: `fallback-${finalInvoiceNumber.replace(/[^0-9]/g, "")}`,
     fiscalUrl: "",
     observations: `Datos reconstruidos desde el reporte del siniestro ${claim.claimNumber}. Revisar contra el PDF antes de auditar.`,
     subtotal,
@@ -150,6 +171,14 @@ async function buildInvoiceFromClaim(body: OcrRequest, rawText = ""): Promise<Ge
 
 export async function POST(request: Request) {
   const body = (await request.json()) as OcrRequest;
+  const baseDiagnostics: Omit<OcrDiagnostics, "bytesLength" | "rawTextLength" | "strategy"> = {
+    runtime: `node-${process.version}`,
+    mimeType: body.mimeType,
+    fileName: body.fileName,
+    originalName: body.originalName,
+    storageKey: body.storageKey,
+    hasUrl: Boolean(body.url),
+  };
 
   try {
     const bytes = body.rawText ? null : await readUploadedBytes(body);
@@ -174,62 +203,133 @@ export async function POST(request: Request) {
           : "";
 
     const invoice = parseInvoiceText(rawText);
+    const weakExtraction = isWeakExtraction(rawText, invoice);
+    const baseResultDiagnostics = {
+      ...baseDiagnostics,
+      bytesLength: bytes?.length ?? 0,
+      rawTextLength: rawText.length,
+      invoiceNumber: invoice.invoiceNumber,
+      claimNumber: invoice.claimNumber,
+      itemCount: invoice.items.length,
+      weakExtraction,
+    };
+    console.info("[ocr]", JSON.stringify({ ...baseResultDiagnostics, strategy: "pdf-text" }));
     const metadata = body.rawText ? null : await readGeneratedMetadata(body);
-    if (metadata?.invoice && isWeakExtraction(rawText, invoice)) {
+    if (metadata?.invoice && weakExtraction) {
       const metadataText = metadata.rawText || rawText;
       const recognition = recognizeInvoiceDocument(metadataText);
+      const diagnostics = {
+        ...baseResultDiagnostics,
+        rawTextLength: metadataText.length,
+        invoiceNumber: metadata.invoice.invoiceNumber,
+        claimNumber: metadata.invoice.claimNumber,
+        itemCount: metadata.invoice.items.length,
+        strategy: "generated-metadata",
+      };
+      console.info("[ocr]", JSON.stringify(diagnostics));
       return NextResponse.json({
         rawText: metadataText,
         invoice: metadata.invoice,
         recognition,
         warning: "La extraccion PDF fue insuficiente; se usaron datos estructurados generados para rellenar el formulario.",
+        diagnostics,
       });
     }
 
     const claimFallback = await buildInvoiceFromClaim(body, rawText);
-    if (claimFallback?.invoice && isWeakExtraction(rawText, invoice)) {
+    if (claimFallback?.invoice && weakExtraction) {
       const metadataText = claimFallback.rawText || rawText;
+      const diagnostics = {
+        ...baseResultDiagnostics,
+        rawTextLength: metadataText.length,
+        invoiceNumber: claimFallback.invoice.invoiceNumber,
+        claimNumber: claimFallback.invoice.claimNumber,
+        itemCount: claimFallback.invoice.items.length,
+        strategy: "claim-fallback",
+      };
+      console.info("[ocr]", JSON.stringify(diagnostics));
       return NextResponse.json({
         rawText: metadataText,
         invoice: claimFallback.invoice,
         recognition: recognizeInvoiceDocument(metadataText),
         warning: "El PDF no entrego texto suficiente en Vercel; se rellenaron campos desde el reporte del siniestro vinculado por numero de factura. Revisa los items antes de auditar.",
+        diagnostics,
       });
     }
 
     const recognition = recognizeInvoiceDocument(rawText);
-    return NextResponse.json({ rawText, invoice, recognition });
+    return NextResponse.json({ rawText, invoice, recognition, diagnostics: { ...baseResultDiagnostics, strategy: "pdf-text" } });
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+    console.error("[ocr:error]", JSON.stringify({ ...baseDiagnostics, error: errorMessage }));
     const metadata = body.rawText ? null : await readGeneratedMetadata(body);
     if (metadata?.invoice) {
       const rawText = metadata.rawText || getPdfFallbackText(body.fileName ?? "documento.pdf");
       const recognition = recognizeInvoiceDocument(rawText);
+      const diagnostics = {
+        ...baseDiagnostics,
+        bytesLength: 0,
+        rawTextLength: rawText.length,
+        invoiceNumber: metadata.invoice.invoiceNumber,
+        claimNumber: metadata.invoice.claimNumber,
+        itemCount: metadata.invoice.items.length,
+        strategy: "generated-metadata-after-error",
+        error: errorMessage,
+      };
+      console.info("[ocr]", JSON.stringify(diagnostics));
       return NextResponse.json({
         rawText,
         invoice: metadata.invoice,
         recognition,
         warning: "No se pudo extraer texto del PDF en este entorno; se usaron datos estructurados generados.",
+        diagnostics,
       });
     }
     const claimFallback = body.rawText ? null : await buildInvoiceFromClaim(body);
     if (claimFallback?.invoice) {
       const rawText = claimFallback.rawText || getPdfFallbackText(body.fileName ?? "documento.pdf");
+      const diagnostics = {
+        ...baseDiagnostics,
+        bytesLength: 0,
+        rawTextLength: rawText.length,
+        invoiceNumber: claimFallback.invoice.invoiceNumber,
+        claimNumber: claimFallback.invoice.claimNumber,
+        itemCount: claimFallback.invoice.items.length,
+        strategy: "claim-fallback-after-error",
+        error: errorMessage,
+      };
+      console.info("[ocr]", JSON.stringify(diagnostics));
       return NextResponse.json({
         rawText,
         invoice: claimFallback.invoice,
         recognition: recognizeInvoiceDocument(rawText),
         warning: "No se pudo extraer texto del PDF; se rellenaron campos desde el reporte del siniestro vinculado por numero de factura.",
+        diagnostics,
       });
     }
     const rawText = body.mimeType === "application/pdf" ? getPdfFallbackText(body.fileName ?? "documento.pdf") : "";
     const recognition = recognizeInvoiceDocument(rawText);
+    const fallbackInvoice = parseInvoiceText(rawText);
+    const diagnostics = {
+      ...baseDiagnostics,
+      bytesLength: 0,
+      rawTextLength: rawText.length,
+      invoiceNumber: fallbackInvoice.invoiceNumber,
+      claimNumber: fallbackInvoice.claimNumber,
+      itemCount: fallbackInvoice.items.length,
+      strategy: "empty-fallback",
+      weakExtraction: true,
+      error: errorMessage,
+    };
+    console.info("[ocr]", JSON.stringify(diagnostics));
     return NextResponse.json(
       {
         error: "No se pudo procesar OCR. Puede continuar ingresando los datos manualmente.",
-        detail: error instanceof Error ? error.message : "Error desconocido",
+        detail: errorMessage,
         rawText,
-        invoice: parseInvoiceText(rawText),
+        invoice: fallbackInvoice,
         recognition,
+        diagnostics,
       },
       { status: 200 },
     );

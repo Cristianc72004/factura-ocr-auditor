@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { FileText, ScrollText } from "lucide-react";
 import { AuditReport } from "@/components/AuditReport";
@@ -12,6 +12,7 @@ import { LayoutShell } from "@/components/LayoutShell";
 import { OcrPreview } from "@/components/OcrPreview";
 import { CompletenessIndicator, ConfidenceMeter, StatusHint, WorkflowSteps } from "@/components/VisualIndicators";
 import type { AuditReport as AuditReportType } from "@/types/audit";
+import type { Claim } from "@/types/claim";
 import type { DocumentRecognition } from "@/types/document";
 import type { ExtractedInvoice } from "@/types/invoice";
 
@@ -48,6 +49,18 @@ type UploadedFile = {
   url?: string;
 };
 
+type OcrDiagnostics = {
+  runtime?: string;
+  strategy?: string;
+  rawTextLength?: number;
+  bytesLength?: number;
+  invoiceNumber?: string;
+  claimNumber?: string;
+  itemCount?: number;
+  weakExtraction?: boolean;
+  error?: string;
+};
+
 async function readJsonResponse(response: Response) {
   const text = await response.text();
   if (!text) return {};
@@ -71,6 +84,20 @@ export default function UploadPage() {
   const [ocrOpen, setOcrOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
   const [ocrWarning, setOcrWarning] = useState("");
+  const [ocrDiagnostics, setOcrDiagnostics] = useState<OcrDiagnostics | null>(null);
+  const [claims, setClaims] = useState<Claim[]>([]);
+  const [fallbackClaimNumber, setFallbackClaimNumber] = useState("");
+
+  useEffect(() => {
+    fetch("/api/claims")
+      .then((response) => response.json())
+      .then((data) => {
+        const loaded = data.claims || [];
+        setClaims(loaded);
+        setFallbackClaimNumber(loaded[0]?.claimNumber || "");
+      })
+      .catch(() => setClaims([]));
+  }, []);
 
   async function upload(file: File) {
     setBusy(true);
@@ -87,7 +114,7 @@ export default function UploadPage() {
       const ocrResponse = await fetch("/api/ocr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(uploadData),
+        body: JSON.stringify({ ...uploadData, fallbackClaimNumber }),
       });
       const ocrData = await readJsonResponse(ocrResponse);
       if (!ocrResponse.ok) throw new Error(ocrData.error || "No se pudo procesar el OCR.");
@@ -95,6 +122,7 @@ export default function UploadPage() {
       setInvoice({ ...emptyInvoice, ...ocrData.invoice });
       setRecognition(ocrData.recognition ?? null);
       setOcrWarning(ocrData.warning || "");
+      setOcrDiagnostics(ocrData.diagnostics || null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Error inesperado.");
     } finally {
@@ -116,6 +144,7 @@ export default function UploadPage() {
       setInvoice({ ...emptyInvoice, ...data.invoice });
       setRecognition(data.recognition ?? null);
       setOcrWarning(data.warning || "");
+      setOcrDiagnostics(data.diagnostics || null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Error inesperado.");
     } finally {
@@ -166,6 +195,17 @@ export default function UploadPage() {
       <div className="flex min-w-0 flex-col gap-6 xl:flex-row xl:items-start">
         <aside className="min-w-0 shrink-0 space-y-4 xl:sticky xl:top-6 xl:w-[360px]">
           <FileUploader uploadedFile={uploadedFile} busy={busy} onUpload={upload} />
+          <label className="block rounded border border-line bg-white p-3 text-sm">
+            <span className="mb-1 block font-semibold text-steel">Siniestro de respaldo</span>
+            <select className="w-full rounded border border-line px-3 py-2 focus-ring" value={fallbackClaimNumber} onChange={(event) => setFallbackClaimNumber(event.target.value)}>
+              {claims.map((claim) => (
+                <option key={claim.id} value={claim.claimNumber}>
+                  {claim.claimNumber} - {claim.invoiceNumber || "sin factura"} - {claim.insuredName}
+                </option>
+              ))}
+            </select>
+            <span className="mt-2 block text-xs text-steel">Se usa solo si Vercel no logra extraer texto suficiente del PDF.</span>
+          </label>
           <CompletenessIndicator label="Datos clave" completed={completedFields} total={requiredFields.length} />
           <CompletenessIndicator label="Items cobrados" completed={invoice.items.length ? 1 : 0} total={1} />
           <button className="focus-ring w-full rounded bg-navy px-4 py-3 text-sm font-semibold text-white disabled:opacity-50" disabled={busy || invoice.items.length === 0 || recognition?.isValid === false} onClick={audit}>
@@ -196,6 +236,11 @@ export default function UploadPage() {
             </div>
           )}
           {ocrWarning && <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-observed">{ocrWarning}</div>}
+          {ocrDiagnostics?.weakExtraction && (
+            <div className="rounded border border-red-200 bg-red-50 p-3 text-sm text-rejected">
+              La lectura del PDF fue insuficiente en el servidor. Estrategia: {ocrDiagnostics.strategy || "sin dato"} - texto: {ocrDiagnostics.rawTextLength ?? 0} caracteres - items: {ocrDiagnostics.itemCount ?? 0}.
+            </div>
+          )}
 
           <CollapsibleSection title="Datos extraidos y correccion" summary={`${completedFields}/${requiredFields.length} campos clave - ${invoice.items.length} item(s)`} defaultOpen>
             <ExtractedInvoiceForm invoice={invoice} onChange={setInvoice} />
@@ -228,6 +273,14 @@ export default function UploadPage() {
 
       <DetailModal title="Texto OCR reconocido" open={ocrOpen} onClose={() => setOcrOpen(false)}>
         <div className="space-y-4">
+          {ocrDiagnostics && (
+            <div className="rounded border border-line bg-surface p-3 text-xs text-steel">
+              <p><strong className="text-ink">Diagnostico OCR:</strong> {ocrDiagnostics.strategy || "sin dato"}</p>
+              <p>Runtime: {ocrDiagnostics.runtime || "sin dato"}</p>
+              <p>Bytes: {ocrDiagnostics.bytesLength ?? 0} - Texto: {ocrDiagnostics.rawTextLength ?? 0} caracteres - Items: {ocrDiagnostics.itemCount ?? 0}</p>
+              {ocrDiagnostics.error && <p>Error: {ocrDiagnostics.error}</p>}
+            </div>
+          )}
           <OcrPreview rawText={rawText} onChange={setRawText} defaultOpen />
           <button className="focus-ring w-full rounded bg-navy px-4 py-3 text-sm font-semibold text-white disabled:opacity-50" disabled={busy || !rawText} onClick={reparse}>
             Reprocesar texto corregido

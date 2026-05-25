@@ -14,20 +14,10 @@ export async function runImageOcr(input: string | Buffer) {
 
 export function getPdfFallbackText(fileName: string) {
   return [
-    "DigitFlow Solutions S.A.S.",
-    "FACTURA ELECTRONICA",
     `Documento PDF recibido: ${fileName}`,
-    "DATOS DEL SINIESTRO",
-    "N Siniestro: pendiente",
-    "ITEM CODIGO DESCRIPCION CANT. UNID. P. UNITARIO DESC. IMPORTE",
-    "1 RV-DIG-0001 Item pendiente de lectura PDF 1,00 u 0,00 0,00 0,00",
-    "SUBTOTAL: 0,00",
-    "IVA (21%): 0,00",
-    "TOTAL ARS: 0,00",
-    "UUID: pendiente",
-    "CAE: pendiente",
-    "Autorizado por AFIP",
-    "El texto del PDF no pudo extraerse en este entorno. Revisa o completa los campos antes de auditar.",
+    "LECTURA_PDF_FALLIDA",
+    "El texto del PDF no pudo extraerse en este entorno.",
+    "Revisa el diagnostico OCR o completa los campos manualmente antes de auditar.",
   ].join("\n");
 }
 
@@ -37,14 +27,50 @@ export async function extractPdfText(filePath: string) {
 }
 
 export async function extractPdfTextFromBytes(data: Buffer) {
+  const attempts: string[] = [];
   const { PDFParse } = await import("pdf-parse");
   const parser = new PDFParse({ data });
   try {
     const result = await parser.getText();
-    return result.text;
+    const text = result.text || "";
+    attempts.push(`pdf-parse:${text.length}`);
+    if (text.trim().length >= 80) return text;
   } finally {
     await parser.destroy();
   }
+
+  try {
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const loadingTask = pdfjs.getDocument({
+      data: new Uint8Array(data),
+      disableWorker: true,
+      useWorkerFetch: false,
+      isEvalSupported: false,
+      disableFontFace: true,
+    } as never);
+    const document = await loadingTask.promise;
+    const pages: string[] = [];
+    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+      const page = await document.getPage(pageNumber);
+      const content = await page.getTextContent();
+      const pageText = content.items
+        .map((item: unknown) => {
+          if (typeof item === "object" && item && "str" in item) return String((item as { str: string }).str);
+          return "";
+        })
+        .filter(Boolean)
+        .join("\n");
+      pages.push(pageText);
+    }
+    const text = pages.join("\n");
+    attempts.push(`pdfjs:${text.length}`);
+    if (text.trim()) return text;
+  } catch (error) {
+    attempts.push(`pdfjs-error:${error instanceof Error ? error.message : "unknown"}`);
+  }
+
+  console.warn("[ocr:pdf] weak extraction", attempts.join(" | "));
+  return "";
 }
 
 export async function extractDocxText(filePath: string) {
