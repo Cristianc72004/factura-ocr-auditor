@@ -73,7 +73,11 @@ export function reason(plan: AgentPlan, context: AgentContext, message: string):
 
   if (plan.intent === "ayuda") {
     return {
-      reply: "Puedo actuar como copiloto del auditor. Me puedes pedir que explique el flujo, revise datos faltantes, resuma una factura, compare contra tarifario, detecte duplicados, analice discrepancias entre reporte y factura o priorice casos.",
+      reply: [
+        "Puedo actuar como copiloto del auditor.",
+        "Entiendo preguntas con errores comunes de escritura y trato de inferir la intencion. Por ejemplo: 'facrura' como factura, 'sinietro' como siniestro, 'fljo' como flujo, 'tarifa' como tarifario.",
+        "Me puedes pedir que explique el flujo, revise datos faltantes, resuma una factura, compare contra tarifario, detecte duplicados, analice discrepancias entre reporte y factura o priorice casos.",
+      ].join("\n"),
       confidence: 0.95,
       sources: ["KnowledgeBase"],
       reasoning: ["ayuda solicitada"],
@@ -83,16 +87,33 @@ export function reason(plan: AgentPlan, context: AgentContext, message: string):
   }
 
   if (plan.intent === "explicar_flujo") {
+    const mentionsTypos = /ortograf|mal escrito|predecir|interpretar/i.test(message);
+    const mentionsGenerator = /generador|generar|pdf de prueba|crear ejemplo|factura de prueba/i.test(message);
+    const nextStep = !context.dashboard.policies
+      ? "Carga polizas/clientes."
+      : !context.dashboard.claims
+        ? "Registra reportes de siniestro."
+        : !context.dashboard.workshops || !context.dashboard.tariffs
+          ? "Completa convenios de talleres y tarifario."
+          : !context.dashboard.total
+            ? "Sube o genera una factura del taller para auditar."
+            : context.dashboard.observed || context.dashboard.rejected
+              ? "Revisa primero los casos observados o rechazados."
+              : "Puedes seguir auditando nuevas facturas.";
     return {
       reply: [
-        "Flujo recomendado:",
-        "1. El cliente reporta el siniestro e informa el numero de factura relacionada.",
-        "2. El taller emite y sube la factura.",
-        "3. El sistema extrae por OCR: factura, taller, asegurado, vehiculo, placa, items, subtotal, IVA y total.",
-        "4. Se cruza reporte del cliente vs factura del taller: numero de factura, cliente, vehiculo, placa y danos declarados.",
-        "5. Se valida convenio del taller y tarifario acordado.",
-        "6. Se detectan sobreprecios, duplicados, totales inconsistentes e items no relacionados con el dano.",
-        "7. El auditor revisa los casos observados o rechazados.",
+        "Flujo de trabajo del auditor:",
+        "1. Clientes y polizas: registra asegurado, vehiculo, placa, cobertura, deducible y limite. Esto permite saber si el cliente esta cubierto.",
+        "2. Talleres y convenio: registra talleres permitidos, categorias, monto maximo y condiciones. Esto valida si el taller puede cobrar.",
+        "3. Tarifario: carga precios maximos, horas maximas y conceptos autorizados. Esto detecta sobreprecios e items fuera de convenio.",
+        "4. Reporte de siniestro: registra lo que declara el cliente: numero de siniestro, factura informada, dano, servicios autorizados y taller permitido.",
+        "5. Generador de facturas: usalo para crear un PDF de prueba basado en un siniestro ya registrado. Sirve para practicar, probar OCR y validar reglas sin depender de una factura externa.",
+        "6. Subir factura: carga la factura real del taller o la generada. El sistema lee el documento por OCR y permite corregir datos.",
+        "7. Auditoria automatica: cruza factura vs poliza, siniestro, taller, tarifario, danos, items, totales y duplicados.",
+        "8. Casos: revisa el reporte final. Las aprobadas pueden pasar, las observadas o rechazadas van a revision humana.",
+        mentionsGenerator ? "Uso practico del generador: entra a Generador, elige un reporte de siniestro, selecciona taller, genera un PDF, descargalo o prueba reconocimiento. Luego puedes subir ese PDF en Carga para auditarlo como si fuera una factura del taller." : "",
+        `Siguiente paso sugerido: ${nextStep}`,
+        mentionsTypos ? "Si escribes con errores, intentare corregir la intencion antes de consultar datos. Ejemplos: facrura=factura, sinietro=siniestro, fljo=flujo, tarifa=tarifario." : "",
       ].join("\n"),
       confidence: 0.96,
       sources: ["KnowledgeBase"],
@@ -102,7 +123,7 @@ export function reason(plan: AgentPlan, context: AgentContext, message: string):
         { label: "Facturas", value: String(context.dashboard.total), tone: "neutral" },
         { label: "Criticas", value: String(context.dashboard.criticalAlerts), tone: context.dashboard.criticalAlerts ? "danger" : "success" },
       ],
-      suggestions: ["Que datos faltan", "Que valida el motor", "Subir factura ahora"],
+      suggestions: ["Como uso el generador", "Que datos faltan", "Que valida el motor", "Subir factura ahora"],
     };
   }
 
@@ -299,7 +320,10 @@ export function reason(plan: AgentPlan, context: AgentContext, message: string):
   }
 
   if (plan.intent === "explicar_regla") {
-    return { reply: explainRule(message), confidence: 0.84, sources: ["KnowledgeBase"], reasoning: ["explicacion local de reglas"], insights: [], suggestions: ["Explicar flujo", "Que datos faltan"] };
+    const typoHelp = /ortograf|interpretar|predecir|error/.test(message.toLowerCase())
+      ? "\n\nTambien interpreto errores comunes de escritura. Por ejemplo: 'sinietro' lo trato como siniestro, 'facrura' como factura, 'tarifa' como tarifario y 'fljo' como flujo."
+      : "";
+    return { reply: `${explainRule(message)}${typoHelp}`, confidence: 0.84, sources: ["KnowledgeBase"], reasoning: ["explicacion local de reglas"], insights: [], suggestions: ["Explicar flujo", "Que datos faltan"] };
   }
 
   if (["resumen_caso", "explicar_alerta", "buscar_factura", "seguimiento_contextual"].includes(plan.intent)) {

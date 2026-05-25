@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { FilePlus2, Send, ShieldAlert, UploadCloud } from "lucide-react";
+import { FilePlus2, Send, ShieldAlert, TableProperties, UploadCloud, Users, Wrench } from "lucide-react";
 import { AgentMessage } from "@/components/agent/AgentMessage";
 import { ChatHistoryPanel } from "@/components/agent/ChatHistoryPanel";
 import { chatTitleFrom, createChat, loadChatHistory, saveChatHistory, type StoredChat, type StoredChatMessage } from "@/lib/agent/chat-history";
@@ -17,8 +17,8 @@ const initialHomeMessages: Message[] = [
   {
     role: "agent",
     content:
-      "Bienvenido. Sube la factura enviada por el taller y audito automáticamente insumos, honorarios, duplicados, tarifario y siniestro reportado antes de que un humano revise la cuenta.",
-    suggestions: ["Subir factura ahora", "¿Qué discrepancias detectas?", "¿Qué datos necesito cargar?"],
+      "Primero te explico como usar el sistema:\n1. Clientes y polizas: aqui registras a quien esta asegurado, que vehiculo tiene, placa, cobertura, deducible y limite.\n2. Talleres y convenio: aqui registras que talleres pueden facturar y bajo que condiciones.\n3. Tarifario: aqui defines precios maximos, horas maximas y conceptos autorizados.\n4. Reporte de siniestro: aqui cargas lo que reporto el cliente: dano, factura informada y servicios autorizados.\n5. Generador: usalo para crear una factura PDF de prueba basada en un siniestro real del sistema.\n6. Subir factura: aqui entra la factura real o generada, se lee con OCR y se audita.\n7. Casos: aqui revisas el reporte final y decides solo sobre observadas o rechazadas.",
+    suggestions: ["Explicar flujo con ejemplo", "Como uso el generador", "Que datos necesito cargar"],
   },
 ];
 
@@ -28,7 +28,7 @@ async function readJsonResponse(response: Response) {
   try {
     return JSON.parse(text);
   } catch {
-    throw new Error("El servidor devolvió una respuesta inválida.");
+    throw new Error("El servidor devolvio una respuesta invalida.");
   }
 }
 
@@ -78,27 +78,24 @@ export function HomeAgentConsole() {
   useEffect(() => {
     const stored = loadChatHistory();
     setChats(stored);
-    if (stored[0]) {
-      setActiveChatId(stored[0].id);
-      setMessages(stored[0].messages);
-    } else {
-      const chat = createChat(initialHomeMessages);
-      setActiveChatId(chat.id);
-      setChats([chat]);
-      saveChatHistory([chat]);
+    const first = stored[0];
+    if (first) {
+      setActiveChatId(first.id);
+      const firstMessage = first.messages[0]?.content || "";
+      setMessages(firstMessage.includes("Primero te explico el flujo correcto") ? first.messages : initialHomeMessages);
+      return;
     }
+    const chat = createChat(initialHomeMessages);
+    setActiveChatId(chat.id);
+    setChats([chat]);
+    saveChatHistory([chat]);
   }, []);
 
   function persist(nextMessages: Message[], titleSeed?: string) {
     setChats((current) => {
-      const title = titleSeed ? chatTitleFrom(titleSeed) : current.find((chat) => chat.id === activeChatId)?.title || "Nueva conversación";
+      const title = titleSeed ? chatTitleFrom(titleSeed) : current.find((chat) => chat.id === activeChatId)?.title || "Nueva conversacion";
       const existingId = activeChatId || `chat_${Date.now().toString(36)}`;
-      const updated: StoredChat = {
-        id: existingId,
-        title,
-        updatedAt: new Date().toISOString(),
-        messages: nextMessages,
-      };
+      const updated: StoredChat = { id: existingId, title, updatedAt: new Date().toISOString(), messages: nextMessages };
       const next = [updated, ...current.filter((chat) => chat.id !== existingId)];
       saveChatHistory(next);
       if (!activeChatId) setActiveChatId(existingId);
@@ -140,7 +137,7 @@ export function HomeAgentConsole() {
           {
             role: "agent" as const,
             content: data.reply || "No pude construir una respuesta.",
-            suggestions: data.suggestions?.length ? data.suggestions : ["Subir factura ahora", "Ver casos críticos", "Cargar siniestro"],
+            suggestions: data.suggestions?.length ? data.suggestions : ["Explicar flujo completo", "Cargar siniestro", "Subir factura ahora"],
           },
         ];
         persist(next);
@@ -159,7 +156,7 @@ export function HomeAgentConsole() {
       persist(next, `Factura ${file.name}`);
       return next;
     });
-    addAgent("Recibí la factura. Estoy cargando el archivo y leyendo el PDF para extraer número de factura, siniestro, taller, ítems, totales y CAE.");
+    addAgent("Recibi la factura. Estoy cargando el archivo y leyendo el PDF para extraer numero de factura, siniestro, taller, items, totales y CAE.");
 
     try {
       const form = new FormData();
@@ -168,7 +165,7 @@ export function HomeAgentConsole() {
       const uploadData = (await readJsonResponse(uploadResponse)) as UploadedFile & { error?: string };
       if (!uploadResponse.ok) throw new Error(uploadData.error || "No se pudo subir el archivo.");
 
-      addAgent("Archivo cargado. Ahora comparo la factura contra siniestros, pólizas, talleres, tarifario y posibles duplicados.");
+      addAgent("Archivo cargado. Ahora comparo la factura contra siniestros, polizas, talleres, tarifario y posibles duplicados.");
       const ocrResponse = await fetch("/api/ocr", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -189,9 +186,9 @@ export function HomeAgentConsole() {
       const report = auditData.report as AuditReport;
       const href = auditData.case?.id ? `/cases/${auditData.case.id}` : "";
       setCaseHref(href);
-      addAgent(buildAuditReply(report), href ? ["Abrir caso auditado", "Ver alertas críticas", "Cargar siniestro"] : ["Ver alertas críticas", "Cargar siniestro"]);
+      addAgent(buildAuditReply(report), href ? ["Abrir caso auditado", "Ver alertas criticas", "Cargar siniestro"] : ["Ver alertas criticas", "Cargar siniestro"]);
     } catch (caught) {
-      addAgent(caught instanceof Error ? caught.message : "Ocurrió un error al procesar la factura.", ["Subir factura ahora", "Cargar siniestro", "Ver tarifario"]);
+      addAgent(caught instanceof Error ? caught.message : "Ocurrio un error al procesar la factura.", ["Explicar flujo completo", "Cargar siniestro", "Ver tarifario"]);
     } finally {
       setBusy(false);
     }
@@ -210,7 +207,7 @@ export function HomeAgentConsole() {
       window.location.href = "/tariffs";
       return;
     }
-    if (value === "Ver alertas críticas") {
+    if (value === "Ver alertas criticas") {
       window.location.href = "/cases";
       return;
     }
@@ -255,21 +252,16 @@ export function HomeAgentConsole() {
     <section className="rounded border border-line bg-white shadow-subtle">
       <div className="border-b border-line p-5">
         <div className="grid gap-3 md:grid-cols-3">
+          <ActionLink href="/clients" icon={<Users className="size-4" />} title="1. Clientes y polizas" detail="Base para asegurado, vehiculo, placa y cobertura." />
+          <ActionLink href="/workshops" icon={<Wrench className="size-4" />} title="2. Talleres y convenio" detail="Taller habilitado, categorias y monto maximo." />
+          <ActionLink href="/tariffs" icon={<TableProperties className="size-4" />} title="3. Tarifario" detail="Precios maximos, horas y conceptos autorizados." />
+          <ActionLink href="/claims" icon={<ShieldAlert className="size-4" />} title="4. Reporte de siniestro" detail="Dano reportado, factura informada y servicios." />
+          <ActionLink href="/generator" icon={<FilePlus2 className="size-4" />} title="5. Generar ejemplo" detail="Crea un PDF de prueba usando el siniestro seleccionado." />
           <button className="focus-ring rounded border border-line bg-white p-4 text-left transition hover:border-navy/50 hover:bg-surface" type="button" onClick={() => inputRef.current?.click()}>
-            <UploadCloud className="mb-3 size-9 rounded bg-navy p-2 text-white" />
-            <span className="block font-semibold text-ink">Subir factura del taller</span>
-            <span className="mt-1 block text-sm leading-5 text-steel">Auditoría automática de insumos, honorarios y totales.</span>
+            <span className="mb-3 grid size-9 place-items-center rounded bg-navy text-white"><UploadCloud className="size-4" /></span>
+            <span className="block font-semibold text-ink">6. Subir factura</span>
+            <span className="mt-1 block text-sm leading-5 text-steel">OCR, reglas, reporte y clasificacion.</span>
           </button>
-          <Link className="focus-ring rounded border border-line bg-white p-4 text-left transition hover:border-navy/50 hover:bg-surface" href="/claims">
-            <ShieldAlert className="mb-3 size-9 rounded bg-navy p-2 text-white" />
-            <span className="block font-semibold text-ink">Registrar siniestro</span>
-            <span className="mt-1 block text-sm leading-5 text-steel">Carga daño reportado, servicios y talleres autorizados.</span>
-          </Link>
-          <Link className="focus-ring rounded border border-line bg-white p-4 text-left transition hover:border-navy/50 hover:bg-surface" href="/generator">
-            <FilePlus2 className="mb-3 size-9 rounded bg-navy p-2 text-white" />
-            <span className="block font-semibold text-ink">Crear ejemplo</span>
-            <span className="mt-1 block text-sm leading-5 text-steel">Genera una factura DigitFlow para probar el reto.</span>
-          </Link>
         </div>
         <input ref={inputRef} className="sr-only" type="file" accept=".pdf,.png,.jpg,.jpeg,.docx" disabled={busy} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadAndAudit(file); event.target.value = ""; }} />
       </div>
@@ -283,14 +275,14 @@ export function HomeAgentConsole() {
             {messages.map((message, index) => (
               <AgentMessage key={index} role={message.role} content={message.content} suggestions={message.suggestions} onPick={pick} />
             ))}
-            {busy && <AgentMessage role="agent" content="Procesando... estoy leyendo el documento y contrastando la cuenta contra reglas de auditoría." />}
+            {busy && <AgentMessage role="agent" content="Procesando... estoy leyendo el documento y contrastando la cuenta contra reglas de auditoria." />}
           </div>
           <form className="mt-4 flex gap-2" onSubmit={submit}>
             <input
               className="min-w-0 flex-1 rounded border border-line px-3 py-2 text-sm focus-ring"
               value={input}
               onChange={(event) => setInput(event.target.value)}
-              placeholder="Ej: ¿qué discrepancias detecta el sistema?"
+              placeholder="Ej: explicame el flujo para usar el sistema"
             />
             <button className="grid size-10 place-items-center rounded bg-navy text-white disabled:opacity-50" disabled={busy} aria-label="Enviar">
               <Send className="size-4" />
@@ -302,10 +294,20 @@ export function HomeAgentConsole() {
   );
 }
 
+function ActionLink({ href, icon, title, detail }: { href: string; icon: React.ReactNode; title: string; detail: string }) {
+  return (
+    <Link className="focus-ring rounded border border-line bg-white p-4 text-left transition hover:border-navy/50 hover:bg-surface" href={href}>
+      <span className="mb-3 grid size-9 place-items-center rounded bg-navy text-white">{icon}</span>
+      <span className="block font-semibold text-ink">{title}</span>
+      <span className="mt-1 block text-sm leading-5 text-steel">{detail}</span>
+    </Link>
+  );
+}
+
 function buildAuditReply(report: AuditReport) {
   if (!report.alerts.length) {
-    return `Auditoría lista. Factura ${report.invoice.invoiceNumber || "sin número"} por ${formatCurrency(report.invoice.total)}. No detecté discrepancias relevantes contra el tarifario, el siniestro o duplicados.`;
+    return `Auditoria lista. Factura ${report.invoice.invoiceNumber || "sin numero"} por ${formatCurrency(report.invoice.total)}. No detecte discrepancias relevantes contra el tarifario, el siniestro o duplicados.`;
   }
   const alerts = report.alerts.slice(0, 3).map((alert, index) => `${index + 1}. ${alert.message}`).join(" ");
-  return `Auditoría lista. Detecté ${report.alerts.length} discrepancia(s) con riesgo ${report.riskScore}/100. ${alerts} Revisa el caso para ver el ítem, valor esperado, valor actual y recomendación.`;
+  return `Auditoria lista. Detecte ${report.alerts.length} discrepancia(s) con riesgo ${report.riskScore}/100. ${alerts} Revisa el caso para ver item, valor esperado, valor actual y recomendacion.`;
 }

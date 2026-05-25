@@ -25,58 +25,58 @@ const iconByName = {
 
 export const defaultAgentActions: AgentAction[] = [
   {
+    id: "explain",
+    title: "Primero: flujo",
+    detail: "Entiende el orden correcto antes de cargar datos o facturas.",
+    prompt: "Explicame paso a paso el flujo para usar el sistema.",
+    icon: "help",
+  },
+  {
+    id: "clients",
+    title: "Clientes y polizas",
+    detail: "Carga asegurado, vehiculo, placa, cobertura y limite.",
+    href: "/clients",
+    icon: "dashboard",
+  },
+  {
+    id: "claims",
+    title: "Reporte de siniestro",
+    detail: "Registra dano, factura informada y servicios autorizados.",
+    href: "/claims",
+    icon: "claims",
+  },
+  {
+    id: "tariffs",
+    title: "Tarifario",
+    detail: "Define precios maximos, horas y conceptos autorizados.",
+    href: "/tariffs",
+    icon: "tariffs",
+  },
+  {
     id: "upload",
-    title: "Subir factura",
-    detail: "Carga PDF, PNG, JPG o DOCX y revisa el OCR antes de auditar.",
+    title: "Factura del taller",
+    detail: "Despues del reporte, carga el documento para auditar.",
     href: "/upload",
     icon: "upload",
   },
   {
     id: "generator",
     title: "Generar ejemplo",
-    detail: "Crea facturas DigitFlow para practicar el flujo completo.",
+    detail: "Crea facturas DigitFlow basadas en un siniestro.",
     href: "/generator",
     icon: "generator",
   },
   {
-    id: "claims",
-    title: "Registrar siniestro",
-    detail: "Completa poliza, asegurado, vehiculo y servicios autorizados.",
-    href: "/claims",
-    icon: "claims",
-  },
-  {
-    id: "tariffs",
-    title: "Cargar tarifario",
-    detail: "Define precios máximos, horas y conceptos autorizados.",
-    href: "/tariffs",
-    icon: "tariffs",
-  },
-  {
     id: "critical",
-    title: "Ver casos criticos",
-    detail: "Abre la revision humana de facturas observadas o rechazadas.",
+    title: "Casos criticos",
+    detail: "Abre la revision humana de observadas o rechazadas.",
     href: "/cases",
     icon: "cases",
   },
   {
-    id: "daily",
-    title: "Resumen del dia",
-    detail: "Pide al agente un estado general de facturas, alertas y base.",
-    prompt: "Resume el estado del dia y dime que debo revisar primero.",
-    icon: "dashboard",
-  },
-  {
-    id: "explain",
-    title: "Como auditar",
-    detail: "Recibe pasos y un ejemplo de uso para una factura DigitFlow.",
-    prompt: "Explicame paso a paso como usar la pagina para auditar una factura, con un ejemplo.",
-    icon: "help",
-  },
-  {
     id: "rules",
-    title: "Que valida el motor",
-    detail: "Pregunta por reglas de duplicados, impuestos, tarifario y siniestro.",
+    title: "Que valida",
+    detail: "Pregunta por reglas de duplicados, impuestos y tarifario.",
     prompt: "Que valida el motor de auditoria y que datos necesito tener cargados?",
     icon: "audit",
   },
@@ -106,12 +106,7 @@ export function AgentActionCards({
       {actions.map((action) => {
         const Icon = iconByName[action.icon];
         return (
-          <button
-            key={action.id}
-            className="focus-ring group min-w-0 rounded border border-line bg-white p-3 text-left transition hover:border-navy/50 hover:bg-surface"
-            type="button"
-            onClick={() => run(action)}
-          >
+          <button key={action.id} className="focus-ring group min-w-0 rounded border border-line bg-white p-3 text-left transition hover:border-navy/50 hover:bg-surface" type="button" onClick={() => run(action)}>
             <span className="mb-2 flex items-center gap-2">
               <span className="grid size-8 shrink-0 place-items-center rounded bg-navy text-white">
                 <Icon className="size-4" />

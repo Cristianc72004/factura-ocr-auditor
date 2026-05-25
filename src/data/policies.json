@@ -26,5 +26,61 @@
     "maxRepairAmount": 420000,
     "coveredServices": ["Mano de obra", "Pintura", "Alineacion", "Guardabarro"],
     "status": "active"
+  },
+  {
+    "id": "pol_003",
+    "policyNumber": "POL-AR-2024-0003",
+    "insurerName": "Seguros del Norte S.A.",
+    "clientName": "Sofia Martinez",
+    "clientDocument": "DNI 34.556.210",
+    "vehicle": "Volkswagen Gol Trend 2018",
+    "licensePlate": "AD456FG",
+    "plan": "terceros_completo",
+    "deductible": 42000,
+    "maxRepairAmount": 380000,
+    "coveredServices": ["Paragolpes delantero", "Pintura", "Lija al agua grano 600", "Mano de obra", "Diagnostico"],
+    "status": "active"
+  },
+  {
+    "id": "pol_004",
+    "policyNumber": "POL-AR-2024-0004",
+    "insurerName": "Seguros del Norte S.A.",
+    "clientName": "Carlos Benitez",
+    "clientDocument": "DNI 25.778.901",
+    "vehicle": "Chevrolet Onix LTZ 2022",
+    "licensePlate": "AE321HJ",
+    "plan": "todo_riesgo",
+    "deductible": 30000,
+    "maxRepairAmount": 720000,
+    "coveredServices": ["Optica delantera izquierda", "Paragolpes delantero", "Guardabarro delantero", "Pintura", "Alineacion", "Mano de obra", "Diagnostico"],
+    "status": "active"
+  },
+  {
+    "id": "pol_005",
+    "policyNumber": "POL-AR-2024-0005",
+    "insurerName": "Seguros del Norte S.A.",
+    "clientName": "Lucia Fernandez",
+    "clientDocument": "DNI 39.120.440",
+    "vehicle": "Renault Sandero Intens 2021",
+    "licensePlate": "AF654KL",
+    "plan": "basica",
+    "deductible": 65000,
+    "maxRepairAmount": 250000,
+    "coveredServices": ["Mano de obra", "Diagnostico", "Alineacion"],
+    "status": "active"
+  },
+  {
+    "id": "pol_006",
+    "policyNumber": "POL-AR-2024-0006",
+    "insurerName": "Seguros del Norte S.A.",
+    "clientName": "Diego Ramirez",
+    "clientDocument": "DNI 30.445.889",
+    "vehicle": "Fiat Cronos Precision 2023",
+    "licensePlate": "AG789MN",
+    "plan": "todo_riesgo",
+    "deductible": 28000,
+    "maxRepairAmount": 800000,
+    "coveredServices": ["Optica delantera izquierda", "Paragolpes delantero", "Guardabarro delantero", "Pintura", "Lija al agua grano 600", "Mano de obra", "Diagnostico", "Alineacion"],
+    "status": "active"
   }
 ]

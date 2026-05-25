@@ -1,11 +1,14 @@
 import type { AgentIntent } from "./agent-types";
+import { likelyMeans, normalizeAgentMessage } from "./typo-normalizer";
 
 export function detectIntent(message: string): AgentIntent {
-  const text = message.toLowerCase();
+  const text = normalizeAgentMessage(message);
   if (/hola|buenas|saludos/.test(text)) return "saludo";
-  if (/flujo|paso a paso|como auditar|como funciona|proceso|orden correcto|explicar flujo|flujo completo/.test(text)) return "explicar_flujo";
-  if (/que datos faltan|datos faltan|datos necesito|faltantes|incompleto|pendiente|pendientes|preparado|base lista/.test(text)) return "datos_faltantes";
-  if (/discrepancias?|diferencias?|inconsistencias?|que detectas|hallazgos|cruces|validaciones|comparar reporte|reporte.*factura|factura.*reporte/.test(text)) return "analizar_discrepancias";
+  if (/flujo|paso a paso|como auditar|como funciona|proceso|orden correcto|explicar flujo|flujo completo|que sigue|como empiezo/.test(text)) return "explicar_flujo";
+  if (/generador|generar factura|crear ejemplo|factura de prueba|pdf de prueba/.test(text)) return "explicar_flujo";
+  if (/ortografico|predecir|interpretar|entiendes errores|texto mal escrito|mal escrito/.test(text)) return "ayuda";
+  if (/que datos faltan|datos faltan|datos necesito|faltantes|incompleto|pendiente|pendientes|preparado|base lista|requisitos/.test(text)) return "datos_faltantes";
+  if (/discrepancias?|diferencias?|inconsistencias?|que detectas|hallazgos|cruces|validaciones|comparar reporte|reporte.*factura|factura.*reporte|errores?|sobreprecio/.test(text)) return "analizar_discrepancias";
   if (/ayuda|puedes hacer|que sabes|como usar|explicame.*pagina|ejemplo/.test(text)) return "ayuda";
   if (/estado del dia|resumen general|dashboard|metric|situacion|panorama|base para auditar/.test(text)) return "consulta_dashboard";
   if (/(casos?|facturas?)\s+(criticos?|criticas?)|criticos?|criticas?/.test(text) && /ver|listar|mostrar|cuales|cuantas|alertas?|casos?|facturas?/.test(text)) return "listar_alertas";
@@ -18,8 +21,9 @@ export function detectIntent(message: string): AgentIntent {
   if (/recomienda|recomendacion|deberia/.test(text)) return "recomendacion_auditor";
   if (/factura\s*\d|0001-|buscar factura|que paso con/.test(text)) return "buscar_factura";
   if (/siniestro\s*\d|buscar siniestro|resume el caso del siniestro/.test(text)) return "buscar_siniestro";
-  if (/por que|observada|rechazada|explica/.test(text)) return "explicar_alerta";
+  if (/por que|observada|rechazada|explica.*alerta|alerta.*explica/.test(text)) return "explicar_alerta";
   if (/resume|resumen|esta factura|este caso|caso/.test(text)) return "resumen_caso";
   if (/^y |^que |^cual |^cuanto |^la |^el /.test(text)) return "seguimiento_contextual";
+  if (likelyMeans(text, ["factura", "siniestro", "poliza", "taller", "tarifario", "auditoria"])) return "ayuda";
   return "desconocido";
 }

@@ -1,3 +1,5 @@
+import { normalizeAgentMessage } from "./typo-normalizer";
+
 export const knowledgeBase = {
   observada:
     "Una factura observada tiene alertas medias o altas que requieren revision humana antes de aprobar pago.",
@@ -20,13 +22,13 @@ export const knowledgeBase = {
   motor:
     "El motor valida factura contra reporte del cliente, poliza, convenio del taller, tarifario, totales, UUID, duplicados e items autorizados. Tambien verifica si el dano reportado corresponde a los items cobrados.",
   flujo:
-    "El flujo correcto es: cliente reporta siniestro con numero de factura, taller sube factura, OCR extrae datos, motor cruza reporte vs factura, valida tarifario y genera alertas para auditor.",
+    "El flujo correcto es: primero se registra la poliza del cliente, luego el cliente reporta el siniestro con numero de factura, despues el taller sube la factura. El OCR extrae datos y el motor compara reporte, poliza, taller, tarifario, danos e items antes de clasificar.",
   generador:
     "El generador crea facturas PDF de prueba con el formato reconocido. Sirve para producir muestras, auditarlas y verificar reglas sin depender de documentos externos.",
 };
 
 export function explainRule(message: string) {
-  const value = message.toLowerCase();
+  const value = normalizeAgentMessage(message);
   if (value.includes("observ")) return knowledgeBase.observada;
   if (value.includes("rechaz")) return knowledgeBase.rechazada;
   if (value.includes("crit")) return knowledgeBase.alerta_critica;

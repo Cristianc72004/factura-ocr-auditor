@@ -1,4 +1,5 @@
 import type { AgentIntent, AgentPlan } from "./agent-types";
+import { normalizeAgentMessage } from "./typo-normalizer";
 
 function findInvoiceNumber(message: string) {
   return message.match(/\b\d{4}-\d{8}\b/)?.[0];
@@ -11,7 +12,7 @@ function findClaimNumber(message: string) {
 export function createQueryPlan(intent: AgentIntent, message: string): AgentPlan {
   const invoiceNumber = findInvoiceNumber(message);
   const claimNumber = findClaimNumber(message);
-  const lower = message.toLowerCase();
+  const lower = normalizeAgentMessage(message);
   const workshopName = lower.includes("digitflow") ? "DigitFlow Solutions S.A.S." : undefined;
   const needsByIntent: Record<AgentIntent, string[]> = {
     resumen_caso: ["invoices", "claims", "alerts", "reviews"],

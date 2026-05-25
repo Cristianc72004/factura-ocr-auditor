@@ -94,6 +94,15 @@ export default function GeneratorPage() {
         <p className="text-sm font-semibold uppercase tracking-wide text-steel">Factura de prueba</p>
         <h1 className="mt-1 text-3xl font-semibold text-ink">Generar factura desde reporte</h1>
       </div>
+      <section className="mb-6 rounded border border-line bg-white p-5 text-sm leading-6 text-steel shadow-subtle">
+        <h2 className="mb-2 font-semibold text-ink">Para que sirve el generador</h2>
+        <p>
+          Usa esta pantalla cuando quieras crear una factura PDF de prueba basada en un siniestro ya registrado. El generador toma el reporte del cliente, usa su factura informada, vehiculo, dano y servicios autorizados, y produce un documento similar al que enviaria el taller.
+        </p>
+        <p className="mt-2">
+          Flujo recomendado: selecciona un siniestro, genera el PDF, prueba el reconocimiento OCR y luego sube esa factura en Carga para ejecutar la auditoria completa.
+        </p>
+      </section>
 
       {error && <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-rejected">{error}</div>}
 
