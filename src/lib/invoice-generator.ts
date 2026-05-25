@@ -1,6 +1,7 @@
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import type { GeneratedInvoiceFile, GeneratedInvoiceRequest } from "@/types/generated-invoice";
 import type { Claim } from "@/types/claim";
+import type { ExtractedInvoice } from "@/types/invoice";
 import { listClaims, listPolicies, listWorkshops } from "./db";
 import { isBlobStorageEnabled, writeStoredFile } from "./storage";
 import { uid } from "./utils";
@@ -209,7 +210,70 @@ async function createPdf(params: {
   page.drawText("GRACIAS POR SU CONFIANZA - ORIGINAL - DigitFlow Solutions S.A.S.", { x: 126, y: 34, size: 8, font: bold });
 
   const bytes = await pdf.save();
-  return { bytes, total };
+  const items = lines.map((line) => {
+    const itemTotal = lineTotal(line, params.index);
+    return {
+      id: uid("item"),
+      code: line.code,
+      description: line.description,
+      category: line.code.startsWith("MO-") ? "mano_obra" : line.code.startsWith("MAT-") ? "material" : line.code.startsWith("SV-") || line.code.startsWith("SER-") ? "servicio" : "repuesto",
+      quantity: line.quantity,
+      unit: line.unit,
+      unitPrice: line.unitPrice,
+      discount: line.discount,
+      laborHours: line.unit.toLowerCase() === "h" ? line.quantity : 0,
+      total: itemTotal,
+    };
+  });
+  const invoice: ExtractedInvoice = {
+    invoiceNumber: params.invoiceNumber,
+    claimNumber: params.claimNumber,
+    policyNumber: policy.policyNumber,
+    workshopName: workshop.workshopName,
+    workshopTaxId: workshop.taxId,
+    customerName: params.request.customerName || policy.insurerName,
+    customerTaxId: "30-50000000-1",
+    insuredName,
+    vehicle: vehicle.name,
+    licensePlate: vehicle.plate,
+    date: emitted.toISOString().slice(0, 10),
+    currency: "ARS",
+    cae: "74293847593847",
+    uuid,
+    fiscalUrl: "https://www.afip.gob.ar/fe/consulta",
+    observations: "Reparacion segun alcance autorizado por Seguros del Norte S.A.",
+    subtotal,
+    tax,
+    total,
+    items,
+  };
+  const rawText = [
+    workshop.workshopName,
+    `NIT: ${workshop.taxId}`,
+    "FACTURA ELECTRONICA",
+    `N ${params.invoiceNumber}`,
+    `Emision: ${emitted.toLocaleDateString("es-AR")}`,
+    "Moneda: ARS - Peso Argentino",
+    "CAE: 74293847593847",
+    "Autorizado por AFIP",
+    "DATOS DEL CLIENTE",
+    `Razon Social: ${params.request.customerName || policy.insurerName}`,
+    "CUIT: 30-50000000-1",
+    "DATOS DEL SINIESTRO",
+    `N Siniestro: ${params.claimNumber}`,
+    `Asegurado: ${insuredName}`,
+    `Poliza: ${policy.policyNumber}`,
+    `Vehiculo: ${vehicle.name} - ${vehicle.plate}`,
+    "ITEM CODIGO DESCRIPCION CANT. UNID. P. UNITARIO DESC. IMPORTE",
+    ...lines.map((line, lineIndex) => `${lineIndex + 1} ${line.code} ${line.description} ${money(line.quantity)} ${line.unit} ${money(line.unitPrice)} ${money(line.discount)} ${money(lineTotal(line, params.index))}`),
+    `SUBTOTAL: ${money(subtotal)}`,
+    `IVA (21%): ${money(tax)}`,
+    `TOTAL ARS: ${money(total)}`,
+    `UUID: ${uuid}`,
+    "COMPROBANTE FISCAL DIGITAL",
+    "Verifique en: https://www.afip.gob.ar/fe/consulta",
+  ].join("\n");
+  return { bytes, total, invoice, rawText };
 }
 
 export async function generateDigitFlowInvoices(request: GeneratedInvoiceRequest): Promise<GeneratedInvoiceFile[]> {
@@ -229,6 +293,11 @@ export async function generateDigitFlowInvoices(request: GeneratedInvoiceRequest
       storageKey: `generated/${fileName}`,
       bytes: pdf.bytes,
       contentType: "application/pdf",
+    });
+    await writeStoredFile({
+      storageKey: `generated/${fileName}.json`,
+      bytes: Buffer.from(JSON.stringify({ invoice: pdf.invoice, rawText: pdf.rawText }, null, 2)),
+      contentType: "application/json",
     });
     files.push({
       fileName,

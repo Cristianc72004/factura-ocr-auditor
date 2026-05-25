@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { FileText, ScrollText } from "lucide-react";
 import { AuditReport } from "@/components/AuditReport";
+import { CollapsibleSection } from "@/components/CollapsibleSection";
+import { DetailModal } from "@/components/DetailModal";
 import { ExtractedInvoiceForm } from "@/components/ExtractedInvoiceForm";
 import { FileUploader } from "@/components/FileUploader";
 import { LayoutShell } from "@/components/LayoutShell";
@@ -65,6 +68,9 @@ export default function UploadPage() {
   const [report, setReport] = useState<AuditReportType | null>(null);
   const [recognition, setRecognition] = useState<DocumentRecognition | null>(null);
   const [caseId, setCaseId] = useState("");
+  const [ocrOpen, setOcrOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
+  const [ocrWarning, setOcrWarning] = useState("");
 
   async function upload(file: File) {
     setBusy(true);
@@ -88,6 +94,7 @@ export default function UploadPage() {
       setRawText(ocrData.rawText || "");
       setInvoice({ ...emptyInvoice, ...ocrData.invoice });
       setRecognition(ocrData.recognition ?? null);
+      setOcrWarning(ocrData.warning || "");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Error inesperado.");
     } finally {
@@ -108,6 +115,7 @@ export default function UploadPage() {
       if (!response.ok) throw new Error(data.error || "No se pudo reprocesar el texto.");
       setInvoice({ ...emptyInvoice, ...data.invoice });
       setRecognition(data.recognition ?? null);
+      setOcrWarning(data.warning || "");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Error inesperado.");
     } finally {
@@ -155,8 +163,8 @@ export default function UploadPage() {
         <WorkflowSteps steps={uploadSteps.map((step) => ({ label: step.label, status: step.status }))} />
       </div>
       {error && <div className="mb-4 rounded border border-red-200 bg-red-50 p-3 text-sm text-rejected">{error}</div>}
-      <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(280px,380px)_minmax(0,1fr)]">
-        <div className="min-w-0 space-y-4">
+      <div className="flex min-w-0 flex-col gap-6 xl:flex-row xl:items-start">
+        <aside className="min-w-0 shrink-0 space-y-4 xl:sticky xl:top-6 xl:w-[360px]">
           <FileUploader uploadedFile={uploadedFile} busy={busy} onUpload={upload} />
           <CompletenessIndicator label="Datos clave" completed={completedFields} total={requiredFields.length} />
           <CompletenessIndicator label="Items cobrados" completed={invoice.items.length ? 1 : 0} total={1} />
@@ -168,22 +176,68 @@ export default function UploadPage() {
               Abrir caso auditado
             </Link>
           )}
-        </div>
-        <div className="grid min-w-0 gap-6">
+          <div className="grid gap-2">
+            <button className="focus-ring inline-flex items-center justify-center gap-2 rounded border border-line bg-white px-4 py-3 text-sm font-semibold text-navy disabled:opacity-50" type="button" disabled={!rawText} onClick={() => setOcrOpen(true)}>
+              <ScrollText className="size-4" />
+              Ver OCR
+            </button>
+            <button className="focus-ring inline-flex items-center justify-center gap-2 rounded border border-line bg-white px-4 py-3 text-sm font-semibold text-navy disabled:opacity-50" type="button" disabled={!report} onClick={() => setReportOpen(true)}>
+              <FileText className="size-4" />
+              Ver reporte
+            </button>
+          </div>
+        </aside>
+
+        <section className="min-w-0 flex-1 space-y-4">
           {recognition && (
             <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
-              <StatusHint tone={recognition.isValid ? "success" : "danger"} title={recognition.isValid ? "Factura valida" : "Documento no valido"} value={recognition.message} />
+              <StatusHint tone={recognition.isValid ? "info" : "danger"} title={recognition.isValid ? "Formato reconocido" : "Formato no reconocido"} value={recognition.isValid ? "El documento se pudo leer. La aprobacion depende de la auditoria." : recognition.message} />
               <ConfidenceMeter value={recognition.confidence} valid={recognition.isValid} />
             </div>
           )}
-          <OcrPreview rawText={rawText} onChange={setRawText} />
-          <button className="focus-ring w-full rounded border border-line bg-white px-4 py-2 text-sm font-semibold text-navy disabled:opacity-50" disabled={busy || !rawText} onClick={reparse}>
+          {ocrWarning && <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-observed">{ocrWarning}</div>}
+
+          <CollapsibleSection title="Datos extraidos y correccion" summary={`${completedFields}/${requiredFields.length} campos clave - ${invoice.items.length} item(s)`} defaultOpen>
+            <ExtractedInvoiceForm invoice={invoice} onChange={setInvoice} />
+          </CollapsibleSection>
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <button className="focus-ring rounded border border-line bg-white px-4 py-3 text-sm font-semibold text-navy disabled:opacity-50" disabled={busy || !rawText} onClick={() => setOcrOpen(true)}>
+              Abrir texto OCR para corregir
+            </button>
+            <button className="focus-ring rounded border border-line bg-white px-4 py-3 text-sm font-semibold text-navy disabled:opacity-50" disabled={!report} onClick={() => setReportOpen(true)}>
+              Abrir reporte de auditoria
+            </button>
+          </div>
+
+          {report && (
+            <div className="rounded border border-line bg-white p-4 shadow-subtle">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-ink">Auditoria generada</p>
+                  <p className="mt-1 text-sm text-steel">Estado: {report.status} - riesgo {report.riskScore}/100 - {report.alerts.length} alerta(s)</p>
+                </div>
+                <button className="rounded bg-navy px-4 py-2 text-sm font-semibold text-white" type="button" onClick={() => setReportOpen(true)}>
+                  Ver detalle
+                </button>
+              </div>
+            </div>
+          )}
+        </section>
+      </div>
+
+      <DetailModal title="Texto OCR reconocido" open={ocrOpen} onClose={() => setOcrOpen(false)}>
+        <div className="space-y-4">
+          <OcrPreview rawText={rawText} onChange={setRawText} defaultOpen />
+          <button className="focus-ring w-full rounded bg-navy px-4 py-3 text-sm font-semibold text-white disabled:opacity-50" disabled={busy || !rawText} onClick={reparse}>
             Reprocesar texto corregido
           </button>
-          <ExtractedInvoiceForm invoice={invoice} onChange={setInvoice} />
-          {report && <AuditReport report={report} />}
         </div>
-      </div>
+      </DetailModal>
+
+      <DetailModal title="Reporte de auditoria" open={reportOpen} onClose={() => setReportOpen(false)}>
+        {report ? <AuditReport report={report} /> : <p className="text-sm text-steel">Todavia no hay reporte generado.</p>}
+      </DetailModal>
     </LayoutShell>
   );
 }

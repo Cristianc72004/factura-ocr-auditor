@@ -19,6 +19,7 @@ export function AuditReport({ report }: { report: AuditReportType }) {
         <div>
           <p className="text-sm font-semibold uppercase tracking-wide text-steel">Reporte automatico</p>
           <h2 className="mt-1 text-2xl font-semibold text-ink">Estado de auditoria</h2>
+          <p className="mt-1 text-sm text-steel">Este estado decide la revision o pago. Es independiente de la confianza OCR.</p>
         </div>
         <CaseStatusBadge status={report.status} />
       </div>

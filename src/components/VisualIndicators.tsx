@@ -58,16 +58,17 @@ export function RiskMeter({ score, label = "Riesgo" }: { score: number; label?: 
 
 export function ConfidenceMeter({ value, valid }: { value: number; valid?: boolean }) {
   const percent = Math.max(0, Math.min(100, Math.round((value || 0) * 100)));
-  const tone: Tone = valid === false ? "danger" : percent >= 75 ? "success" : percent >= 45 ? "warning" : "info";
+  const tone: Tone = valid === false ? "danger" : percent >= 45 ? "info" : "warning";
   return (
     <div className={cn("rounded border p-3", toneStyles[tone])}>
       <div className="mb-2 flex items-center justify-between text-sm">
-        <span className="font-semibold">Confianza OCR</span>
+        <span className="font-semibold">Lectura OCR</span>
         <span className="font-semibold">{percent}%</span>
       </div>
       <div className="h-2 overflow-hidden rounded bg-white/70">
-        <div className={cn("h-full rounded", tone === "danger" && "bg-rejected", tone === "warning" && "bg-observed", tone === "success" && "bg-approved", tone === "info" && "bg-navy")} style={{ width: `${percent}%` }} />
+        <div className={cn("h-full rounded", tone === "danger" && "bg-rejected", tone === "warning" && "bg-observed", tone === "info" && "bg-navy")} style={{ width: `${percent}%` }} />
       </div>
+      <p className="mt-2 text-xs">Solo mide reconocimiento del documento, no aprobacion de pago.</p>
     </div>
   );
 }

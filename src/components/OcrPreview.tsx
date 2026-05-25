@@ -4,8 +4,8 @@ import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function OcrPreview({ rawText, onChange }: { rawText: string; onChange: (value: string) => void }) {
-  const [open, setOpen] = useState(false);
+export function OcrPreview({ rawText, onChange, defaultOpen = false }: { rawText: string; onChange: (value: string) => void; defaultOpen?: boolean }) {
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
     <div className="rounded border border-line bg-white p-4">
