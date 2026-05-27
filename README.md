@@ -2,6 +2,38 @@
 
 Plataforma web demostrable para auditar facturas emitidas por talleres en siniestros vehiculares. El sistema permite registrar la base administrativa de la aseguradora, cargar reportes de siniestro del cliente, recibir facturas del taller, reconocer documentos con OCR, validar contra reglas de negocio y generar un reporte de auditoria con clasificacion automatica.
 
+## Agente local con Ollama
+
+El chat del administrador funciona solo con Ollama local. No usa OpenAI, Gemini ni APIs externas.
+
+Variables locales:
+
+```bash
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=gemma2:2b
+```
+
+Preparar el modelo:
+
+```bash
+ollama pull gemma2:2b
+ollama run gemma2:2b
+```
+
+En otra terminal, iniciar la app:
+
+```bash
+npm run dev
+```
+
+Abrir:
+
+```bash
+http://localhost:3000
+```
+
+El endpoint del agente es `POST /api/agent/chat` y responde usando el modelo local `gemma2:2b`.
+
 El objetivo del prototipo es ayudar a una aseguradora a decidir si una factura debe quedar:
 
 - `approved`: aprobada

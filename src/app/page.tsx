@@ -1,4 +1,4 @@
-import { HomeAgentConsole } from "@/components/HomeAgentConsole";
+import { AgentChatPanel } from "@/components/agent/AgentChatPanel";
 import { LayoutShell } from "@/components/LayoutShell";
 
 export default function Home() {
@@ -13,7 +13,7 @@ export default function Home() {
           </p>
         </div>
 
-        <HomeAgentConsole />
+        <AgentChatPanel pageContext="dashboard" />
       </div>
     </LayoutShell>
   );
